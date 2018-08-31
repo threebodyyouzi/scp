@@ -1,0 +1,4 @@
+安装的包：git
+命令：
+(1) git clone https://github.com/redhatedu/course
+(2) git pull

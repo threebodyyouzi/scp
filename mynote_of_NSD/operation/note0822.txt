@@ -1,0 +1,28 @@
+配置Nginx服务器，添加服务器池
+http {
+.. ..
+#使用upstream定义后端服务器集群，集群名称任意(如webserver)
+#使用server定义集群中的具体服务器和端口
+upstream webserver {
+                server 192.168.2.100:80;
+                server 192.168.2.200:80;
+        }
+.. ..
+server {
+        listen        80;
+        server_name  localhost;
+            location / {
+#通过proxy_pass将用户的请求转发给webserver集群
+            proxy_pass http://webserver;
+        }
+}
+
+#weight设置服务器权重值，默认值为1
+#max_fails设置最大失败次数
+#fail_timeout设置失败超时时间，单位为秒
+#down标记服务器已关机，不参与集群调度
+
+
+使用Nginx实现TCP/UDP调度器功能，实现如下功能：
+Nginx编译安装时需要使用--with-stream
+

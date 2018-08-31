@@ -1,0 +1,37 @@
+location /status {
+           stub_status on;
+              allow 本机的ip;
+                  deny all;   ------------------>只有自己能看，更安全
+                      } 
+
+
+
+构建memcached服务
+memcached选项 
+-p 指定memcached监听的端口号
+-u memcached程序运行时使用的用户身份
+-m 指定使用本机的多少物理内存存数据，默认64M
+-c memcached服务的最大连接数
+-n chunk size 的最小空间是多少，单位为字节
+-f chunk size 大小增长的倍数，默认1.25倍
+-d 在后台启动
+
+使用telnet访问memcached服务器
+#telnet 192.168.4.5 11211
+           ^远程的目标   ^远程的端口
+set abc 　　　0 　　　  180 　　　     3
+      ^变量名   ^不压缩    ^数据缓存时间    ^存储的数据所需的字节
+
+问题: append 与 set 设置的数据缓存时间不一致，以谁为准？？
+以set为准
+
+
+session和cookie
+client-------------------------->web
+                                 session会话信息
+                                 sid[tom]session
+cookie=sid
+client-------------------------->web
+浏览器cookies:sid----------------->
+
+TMOOC-SESSION=C3AB280C6F6842DBBAB69477FED4FCB7

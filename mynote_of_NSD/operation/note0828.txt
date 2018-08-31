@@ -1,0 +1,71 @@
+一．配置GRE VPN
+(1)启用GRE模块（client和proxy都需要操作，下面以client为例）
+[root@client ~]# modprobe  ip_gre      //加载模块ip_gre
+[root@client ~]# lsmod                            //显示模块列表
+[root@client ~]# lsmod  | grep ip_gre            //确定是否加载了gre模块
+(2)Client主机创建VPN隧道
+1)创建隧道
+[root@client ~]# ip tunnel add tun0  mode gre \ 
+>  remote 201.1.2.5 local 201.1.2.10
+//ip tunnel add创建隧道（隧道名称为tun0），ip tunnel help可以查看帮助
+//mode设置隧道使用gre模式
+//local后面跟本机的IP地址，remote后面是与其他主机建立隧道的对方IP地址
+2)启用该隧道（类似与设置网卡up）
+[root@client ~]# ip link set tun0 up         //设置UP
+[root@client ~]# ip link show                //查看激活的隧道
+3)为VPN配置隧道IP地址
+[root@client ~]# ip addr add 10.10.10.10/24 peer 10.10.10.5/24 \
+>  dev tun0
+//为隧道tun0设置本地IP地址（10.10.10.10.10/24）
+//隧道对面的主机IP的隧道IP为10.10.10.5/24
+[root@client ~]# ip a s                      //查看IP地址
+4)路由转发
+[root@proxy ~]# echo "1" > /proc/sys/net/ipv4/ip_forward   //本文件内写０或１，写１开启路由转发，将linux变成一台路由器，写０关闭
+
+二．创建PPTP VPN
+(1)安装软件包（软件包参考lnmp_soft）
+yum localinstall pptpd-1.4.0-2.el7.x86_64.rpm
+(2)修改配置文件
+[root@proxy ~]# vim /etc/pptpd.conf
+.. ..
+localip 201.1.2.5                                    //服务器本地IP
+remoteip 192.168.3.1-50                            //分配给客户端的IP池
+
+
+[root@proxy ~]# vim /etc/ppp/options.pptpd
+require-mppe-128                                    //使用MPPE加密数据
+ms-dns 8.8.8.8                                    //DNS服务器
+
+
+[root@proxy ~]# vim /etc/ppp/chap-secrets            //修改账户配置文件
+jacob           *               123456      *
+//用户名    服务器标记    密码    客户端
+
+(3)启动服务
+[root@proxy ~]# systemctl start pptpd
+[root@proxy ~]# systemctl enable pptpd
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,47 @@
+http协议是明文协议
+https登陆
+
+对称算法 加密123－－－－－解密123   AES,DES
+非对称算法 加密123 －－解密u9i   RSA,DSA
+
+
+UserA ---------------------  tmall
+1.---------------------------------------------->访问tmall
+公钥<-----------------------------------------
+
+2.[用户名，密码]---------------------------->私钥
+https
+
+动静分离
+　　　 nginx            php
+nginx实现：
+如果用户访问静态页面，则自己直接找到页面，直接返回
+如果用户访问的事动态php，则转发给9000端口，解释后，再返回
+在配置文件里,location匹配用户的地址栏
+
+location / {
+            root   html;
+            index  index.php  index.html   index.htm;
+#设置默认首页为index.php，当用户在浏览器地址栏中只写域名或IP，不说访问什么页面时，服务器会把默认首页index.php返回给用户
+        }
+ location  ~  \.php$  {
+            root           html;
+            fastcgi_pass   127.0.0.1:9000;    #将请求转发给本机9000端口，PHP解释器
+            fastcgi_index  index.php;
+            #fastcgi_param   SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+            include        fastcgi.conf;
+        }
+
+rewrite ^/(.*)  http://www.tmooc.com/$1;   --------->$1代替正则表达式里的\1,粘贴(.*)里的内容
+rewrite ^/ http://www.baidu.com
+rewrite ^/   /index.html
+rewrite /a.html  /b.html
+rewrite /c.html  /cc/c.html
+if ($http_user_agent ~*  　　　msie){
+#    ^判断访问的浏览器   ^模糊判断　^IE浏览器
+     rewrite /test.html /firefox/tedt.html
+}
+
+选项：
+last  不再读其他rewrite;
+break  不再读其他语句，结束请求;

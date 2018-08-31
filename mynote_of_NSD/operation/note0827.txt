@@ -1,0 +1,161 @@
+SVN版本控制
+word:笔记，论文
+usb,电脑，笔记本，网盘
+（１）SVN允许数据恢复到早期版本
+（２）允许与别人协作文档
+
+一．修改配置文件，创建账户与密码
+(1)！！！配置文件每行顶格写，不能有空格！！！
+(2)anon-access = none
+//19行，匿名无任何权限
+auth-access = write
+//20行，有效账户可写
+password-db = passwd ------>文件名,要改的配置文件名
+//27行，密码文件
+authz-db = authz　------------>要改的配置文件名
+//34行，ACL访问控制列表文件
+
+(3)cat /var/svn/project/conf/auth
+[/]                                定义ACL访问控制 ,"/"指代共享仓库的根
+harry = rw                        //用户对项目根路径可读可写
+tom = rw
+
+(4)vim /var/svn/project/conf/passwd 
+… …
+[users]
+harry = 123456
+//用户名和密码
+tom = 123456
+//用户名和密码
+
+(5)启动服务
+svnserve -d  -r /var/svn/project
+
+二．客户端测试
+(1)将服务器上的代码下载到本地
+svn --username harry --password 123456 co svn://192.168.2.100/ code        
+//建立本地副本,从服务器192.168.2.100上co下载代码到本地code目录(co是connect的简写)
+//用户名harry,密码123456
+
+(2)vim user.slice                 //挑选任意文件修改其内容
+svn ci -m "modify user"        //将本地修改的数据同步到服务器,""内填写修改代码的原因，ci是commit的简写
+
+(3)svn update                    //将服务器上新的数据同步到本地
+ svn info     svn://192.168.2.100    //查看版本仓库基本信息
+svn log     svn://192.168.2.100    //查看版本仓库的日志
+
+(4)echo "test" > test.sh        //本地新建一个文件
+svn ci -m "new file"            //提交失败，该文件不被svn管理
+svn add test.sh                //将文件或目录加入版本控制
+svn ci -m "new file"            //再次提交，成功
+
+(5)sed -i 'd' tmp.mount            
+//删除文件所有内容，但未提交
+svn revert tmp.mount            
+//还原tmp.mount文件
+
+(6)vim umount.target            //任意修改本地的一个文件
+svn diff                     //查看所有文件的差异
+svn diff umount.target        //仅查看某一个文件的差异
+svn cat svn://192.168.2.100/reboot.target    //查看服务器文件的内容
+
+(7)sed -i '1a #test###' tuned.service
+//修改本地副本中的代码文件
+svn ci  -m  "xxx"
+//提交代码
+svn merge -r7:2    tuned.service    
+//将文件从版本7还原到版本2
+
+(8)svn -r5 cat svn://192.168.2.100/tuned.service
+//-r查看旧版本内容
+
+
+
+三．使用Subversion协同工作
+(1) harry和tom修改不同的文件
+[root@web1 mycode]# sed -i "3a ###harry modify#####"  tmp.mount
+[root@web1 mycode]# svn ci -m  "has modified"
+[root@web2 mycode]# sed -i "3a ###tom modify#####"  umount.target
+[root@web2 mycode]# svn ci -m "has modified"
+[root@web2 mycode]# svn update
+[root@web1 mycode]# svn update
+
+(2)harry和tom修改相同文件的不同行
+[root@web1 mycode]# sed -i "3a ###harry modify#####" user.slice
+[root@web1 mycode]# svn ci -m  "modified"
+[root@web2 mycode]# sed -i "6a ###tom  modify#####"  user.slice
+[root@web2 mycode]# svn ci -m "modified"        //提交失败
+Sending        svnserve
+Transmitting file data .svn: Commit failed (details follow):
+svn: File '/user.slice' is out of date（过期）
+[root@web2 mycode]# svn update                    //提示失败后，先更新再提交即可
+[root@web2 mycode]# svn ci -m "modified"        //提交成功
+Sending        user.slice
+Transmitting file data .
+
+(3) harry和tom修改相同文件的相同行
+[root@web1 mycode]# sed  -i  '1c [UNIT]' tuned.service
+[root@web1 mycode]# svn ci -m "modified"
+[root@web2 mycode]# sed  -i  '1c [unit]' tuned.service
+[root@web2 mycode]# svn ci -m "modified"
+Sending        tuned.service
+Transmitting file data .svn: Commit failed (details follow):
+svn: File '/tuned.service' is out of date(过期)
+[root@web2 mycode]# svn update                    //出现冲突，需要解决
+Conflict discovered in 'tuned.service'.
+Select: (p) postpone, (df) diff-full, (e) edit,
+        (mc) mine-conflict, (tc) theirs-conflict,
+        (s) show all options:p                    //选择先标记p，随后解决
+[root@web2 mycode]# ls
+tuned.service   tuned.service.mine        tuned.service.r10    tuned.service.r9
+[root@web2 mycode]# mv tuned.service.mine tuned.service
+[root@web2 mycode]# rm  -rf  tuned.service.r10 tuned.service.r9
+[root@web2 mycode]# svn ci -m "modified"    //解决冲突
+
+(4)使用dump指令备份版本库数据
+[root@web1 ~]#svnadmin dump /var/svn/project > project.bak  //备份
+[root@web1 ~]# svnadmin create /var/svn/project2               //新建空仓库
+[root@web1 ~]# svnadmin load /var/svn/project2 < project.bak      //还原
+
+
+
+
+
+创建并修改SPEC配置文件
+[root@web1 ~]# vim /root/rpmbuild/SPECS/nginx.spec 
+Name:nginx                                            //源码包的名字
+Version:1.12.2　　　　　　　　　　　　　　　　　　　　　　   //nginx软件的版本号
+Release:    10　　　　　　　　　　　　　　　　　　　　　　　 //打rpm包的版本
+Summary: Nginx is a web server software.    　　　　　//描述信息，随便打, rpm -ql 查看到的信息
+Group: 　                                            //可以把多个rpm包合成组包
+License:GPL    　　　　　　　　　　　　　　　　　　　      //
+URL:    www.test.com    
+Source0:nginx-1.12.2.tar.gz　　　　　　　　　　　　　　　//
+#BuildRequires:　　　　　　                           //需要的依赖包    
+#Requires:    
+%description　　　　　　　　　　　　　　　　　　　　　　　 //详细描述
+nginx [engine x] is an HTTP and reverse proxy server.
+%prep
+%setup –q                            //自动解压源码包，并cd进入目录
+%build
+./configure
+make %{?_smp_mflags}
+%install
+make install DESTDIR=%{buildroot}
+cp /root/rpmbuild/SPECS/nginx.sh %{buildroot}/usr/local/nginx/    
+##注意，cp非必须操作，注意，这里是将一个脚本拷贝到安装目录，必须提前准备该文件
+%files
+%doc
+/usr/local/nginx/*            //对哪些文件与目录打包
+%changelog
+
+
+%pre        #rpm安装前制行的脚本 
+
+%post       #安装后执行的脚本 
+
+%preun      #卸载前执行的脚本 
+
+%postun     #卸载后执行的脚本
+
+
