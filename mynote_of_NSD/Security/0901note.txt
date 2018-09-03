@@ -1,0 +1,49 @@
+一．部署audit监控文件
+审计能够记录的日志内容：
+a) 日期与事件以及事件的结果
+b) 触发事件的用户
+c) 所有认证机制的使用都可以被记录，如ssh等
+d) 对关键数据文件的修改行为等都可以被记录
+
+1）安装软件包，查看配置文件（确定审计日志的位置）
+[root@proxy ~]# yum -y  install  audit                //安装软件包
+[root@proxy ~]# cat /etc/audit/auditd.conf            //查看配置文件，确定日志位置
+log_file = /var/log/audit/audit.log                //日志文件路径
+[root@proxy ~]# systemctl start auditd                //启动服务
+[root@proxy ~]# systemctl enable auditd            //设置开机自启
+
+2）配置审计规则
+[root@proxy ~]# auditctl  -s                        //查询状态
+[root@proxy ~]# auditctl  -l                        //查看规则
+[root@proxy ~]# auditctl  -D                        //删除所有规则
+定义临时文件系统规则：
+#auditctl  -w  path  -p  permission  -k  key_name
+# path为需要审计的文件或目录
+# 权限可以是r,w,x,a(文件或目录的属性发生变化)
+# Key_name为可选项，方便识别哪些规则生成特定的日志项
+
+二．加固常见服务的安全
+Nginx安全优化包括：删除不要的模块、修改版本信息、限制并发、拒绝非法请求、防止buffer溢出。
+MySQL安全优化包括：初始化安全脚本、密码安全、备份与还原、数据安全。
+Tomcat安全优化包括：隐藏版本信息、降权启动、删除默认测试页面.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
