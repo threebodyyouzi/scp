@@ -1,0 +1,170 @@
+Zabbix监控平台
+(1)目的：
+(a)实时报告系统状态：每一部分必须同时监控，内容包含吞吐量反应时间等
+(b)提前发现系统的问题：
+(2)监控的资源类型：
+(a)公开数据：WEB FTP SSH 数据库等应用服务　
+           TCP或UDP端口
+(b)私有数据：CPU 内存　磁盘　网卡流量等使用信息　
+               用户　进程等运行信息　
+
+
+自动化监控系统
+Cacti
+基于SNMP协议的监控软件，强大的绘图能力
+Nagios
+基于Agent监控，强大的状态检查与报警机制
+插件极多，自己写监控脚本潜入到Nagios非常方便
+Zabbix
+基于多种监控机制，支持分布式监控
+
+
+
+一．使用命令查看计算机状态数据
+1）查看内存与交换分区信息
+[root@proxy ~]# free                                     //查看内存信息
+[root@proxy ~]# free | awk '/Mem/{print $4}'                //查看剩余内存容量
+[root@proxy ~]# swapon -s                                //查看交换分区信息
+
+2）查看磁盘信息
+[root@proxy ~]# df                                     //查看所有磁盘的使用率
+[root@proxy ~]# df | awk '/\/$/{print $5}'            //查看根分区的利用率
+3）查看CPU平均负载
+[root@proxy ~]# uptime                             //查看CPU负载（1，5，15分钟）
+[root@proxy ~]# uptime |awk '{print $NF}'            //仅查看CPU的15分钟平均负载
+
+4）查看网卡信息
+[root@proxy ~]# ifconfig eth0
+[root@proxy ~]# ifconfig eth0 |awk '/inet /{print $2}'        //查看IP地址信息
+[root@proxy ~]# ifconfig eth0 |awk '/RX p/{print $5}'        //网卡接受数据包流量
+[root@proxy ~]# ifconfig eth0 |awk '/TX p/{print $5}'        //网卡发送数据包流量
+5）查看端口信息
+[root@proxy ~]# ss -ntulp                                //查看本机监听的所有端口
+//-n以数字显示端口号
+//-t显示tcp连接
+//-u显示udp连接
+//-p显示监听端口对应的程序名称
+6）查看网络连接信息
+[root@proxy ~]# ss -antup                                //查看所有的网络连接信息
+//-a查看所有连接状态信息
+
+
+部署监控服务器Zabbix Server
+1）源码安装Zabbix Server
+root@zabbixserver lnmp_soft]# yum -y install  net-snmp-devel curl-devel 
+//安装相关依赖包
+[root@zabbixserver lnmp_soft]# yum -y install libevent-devel-2.0.21-4.el7.x86_64.rpm
+//注意libevent-devel这个软件包在lnmp_soft目录下有提供
+
+[root@zabbixserver lnmp_soft]# tar -xf zabbix-3.4.4.tar.gz
+[root@zabbixserver lnmp_soft]# cd zabbix-3.4.4/
+[root@zabbixserver zabbix-3.4.4]# ./configure  --enable-server \
+> --enable-proxy --enable-agent --with-mysql=/usr/bin/mysql_config \
+> --with-net-snmp --with-libcurl
+// --enable-server安装部署zabbix服务器端软件
+// --enable-agent安装部署zabbix被监控端软件
+// --enable-proxy安装部署zabbix代理相关软件
+// --with-mysql配置mysql_config路径
+// --with-net-snmp允许zabbix通过snmp协议监控其他设备
+// --with-libcurl安装相关curl库文件，这样zabbix就可以通过curl连接http等服务，测试被监控主机服务的状态
+
+2）初始化Zabbix
+[root@zabbixserver ~]# mysql
+mysql> create database zabbix character set utf8;
+//创建数据库，支持中文字符集
+mysql> grant all on zabbix.* to zabbix@'localhost' identified by 'zabbix';
+//创建可以访问数据库的账户与密码
+[root@zabbixserver ~]# cd lnmp_soft/zabbix-3.4.4/database/mysql/
+[root@zabbixserver mysql]# mysql -uzabbix -pzabbix zabbix < schema.sql
+[root@zabbixserver mysql]# mysql -uzabbix -pzabbix zabbix < images.sql
+[root@zabbixserver mysql]# mysql -uzabbix -pzabbix zabbix < data.sql
+//刚刚创建是空数据库，zabbix源码包目录下，有提前准备好的数据
+//使用mysql导入这些数据即可（注意导入顺序）
+
+[root@zabbixserver ~]# cd lnmp_soft/zabbix-3.4.4/frontends/php/
+[root@zabbixserver php]# cp -r * /usr/local/nginx/html/
+[root@zabbixserver php]# chmod -R 777 /usr/local/nginx/html/*
+//上线Zabbix的Web页面
+
+[root@zabbixserver ~]# vim /usr/local/etc/zabbix_server.conf
+DBHost=localhost
+//数据库主机，默认该行被注释
+DBName=zabbix
+//设置数据库名称
+DBUser=zabbix
+//设置数据库账户
+DBPassword=zabbix
+//设置数据库密码，默认该行被注释
+LogFile=/tmp/zabbix_server.log    
+//设置日志，仅查看以下即可
+[root@zabbixserver ~]# useradd -s /sbin/nologin zabbix
+//不创建用户无法启动服务
+[root@zabbixserver ~]# zabbix_server                      //启动服务
+//修改Zabbix_server配置文件，设置数据库相关参数，启动Zabbix_server服务
+
+
+[root@zabbixserver ~]# vim /usr/local/etc/zabbix_agentd.conf
+Server=127.0.0.1,192.168.2.5                    //允许哪些主机监控本机
+ServerActive=127.0.0.1,192.168.2.5                //允许哪些主机通过主动模式监控本机
+Hostname=zabbix_server                        //设置本机主机名
+LogFile=/tmp/zabbix_server.log                    //设置日志文件
+UnsafeUserParameters=1                        //是否允许自定义key
+[root@zabbixserver ~]# zabbix_agentd            //启动监控agent
+[root@zabbixserver ~]# ss -ntulp |grep zabbix_agentd   //查看端口信息为10050
+tcp    LISTEN     0      128       *:10050                 *:*                   users:(("zabbix_agentd",pid=23505,fd=4),("zabbix_agentd",pid=23504,fd=4)
+//修改Zabbix_agent配置文件，启动Zabbix_agent服务
+
+
+[root@zabbixserver ~]# yum -y install  php-gd php-xml
+[root@zabbixserver ~]# yum install php-bcmath-5.4.16-42.el7.x86_64.rpm  
+[root@zabbixserver ~]# yum install php-mbstring-5.4.16-42.el7.x86_64.rpm
+[root@zabbixserver ~]# vim /etc/php.ini
+date.timezone = Asia/Shanghai                //设置时区
+max_execution_time = 300                    //最大执行时间，秒
+post_max_size = 32M                        //POST数据最大容量
+max_input_time = 300                        //服务器接收数据的时间限制
+memory_limit = 128M                        //内存容量限制
+[root@zabbixserver ~]# systemctl restart php-fpm
+//修改PHP配置文件，满足Zabbix_server的Web环境要求
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

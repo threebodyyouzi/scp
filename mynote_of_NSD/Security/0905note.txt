@@ -1,0 +1,46 @@
+一．实现Zabbix报警功能
+
+2）触发器表达式
+创建触发器时需要定义表达式，触发器表达式（Expression）是触发异常的条件，触发器表达式格式如下：
+{<server>:<key>.<function>(<parameter>)}<operator><constant>
+{主机：key.函数(参数)}<表达式>常数
+案例：
+(a)
+{web1:system.cpu.load[all,avg1].last(0)}>5	//0为最新数据
+如果web1主机最新的CPU平均负载值大于5，则触发器状态Problem
+(b)
+{vfs.fs.size[/,free].max(5m)}<10G	//5m为最近5分钟
+根分区，最近5分钟的最大容量小于10G，则状态进入Problem
+(c)
+{vfs.file.cksum[/etc/passwd].diff(0)}>0	//0为最新数据
+最新一次校验/etc/passwd如果与上一次有变化，则状态进入Problem
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
