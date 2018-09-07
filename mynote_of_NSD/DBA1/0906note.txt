@@ -1,0 +1,217 @@
+关系型数据库　  统称：RDDBMS   主要软件：Mysql
+　　　　　　　　存储数据时必须按照事先设置好的结构存储数据
+　　　　　　　　已经存储好的数据之间可以关联操作
+非关系型数据库　统称：NoSQL  　主要软件：Redis / Mongdb
+　　　　　　　　数据存储时不需要事先创建存储结构，使用key和values键值对的方式存储数据，已经存储之间不可以做关联操作
+DBA1 基础
+day01 搭建数据库服务器　　　数据类型
+day02 mysql键值　　　　　　存储引擎
+day03 数据管理
+day04 用户管理
+day05 数据的备份与恢复
+
+DBA2 进阶
+day01 MySQL主从同步
+day02 数据读写分离
+day03 mysql集群
+day04 视图与存储过程
+day05 优化
+
+NoSQL
+redis服务的使用
+mongdb服务的使用
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+day01 搭建数据库服务器　数据库服务的基本使用　Mysql数据类型
+数据库就是存储数据的仓库，按照规定的格式，把数据存储在物理介质（硬盘）上
+搭建数据库服务器：在192.168.4.50主机上部署数据库服务
+数据库服务的基本使用：建库　建表　插入记录
+
+常见的数据库服务软件：
+Oracle Database : 跨平台
+MYSQL/MariaDB:跨平台，开源
+SQL Server:微软独占
+Access:微软独占
+DB2:IBM,跨平台，闭源
+sybase:跨平台
+PostgreSQl:跨平台，开源
+
+mysql的特点和应用
+主要特点：
+a.适用于中小型规模 关系型数据库系统
+b.支持Linux/Unix Windows等多种操作系统
+c.使用C和C++编写,可移植性强
+d.通过API支持Python/java/Perl/PHP等语言
+典型应用环境
+-LAMP平台,与Apache HTTP Server组合
+-LNMP平台,与Nginx组合
+==========================================================================================
+(1)启动MySQL数据库服务
+#systemctl stop mariadb                  //停止mariadb服务
+#rm -rf /etc/my.cnf                      //删除主配置文件
+#rm -rf /var/lib/mysql/*                 //删除数据
+#rpm -e --nodeps mariadb-server mariadb  //卸载软件包
+
+//第一次启动服务会初始化数据,自动在/var/lib/mysql下创建运行服务所需要的文件和目录
+#systemctl restart mysqld
+
+//查看某个进程的信息
+#ps -C mysqld
+#netstat -utnlp | grep mysqld
+
+(2)MySQL初始配置
+默认的数据库管理员账号
+-存储在日志文件/var/log/mysqld.log里
+#grep 'temporary password' /var/log/mysqld.log         //查找随机生成的管理密码
+# mysql -uroot -p'xc:kuxO*h2LR'                        //登录mysql
+
+(3)修改root口令
+mysql> alter user root@"localhost" identified by "123qqq...A"      //不修改策略,直接修改密码
+
+
+=========================================================================================
+
+连接数据库服务器:
+方式: 1.命令行  跨平台性好,不直观
+      2.程序连接(脚本)
+      3.图形工具 
+ 
+建库:相当于文件夹
+1.查看已有的库
+＃ls /var/lib/mysql          //库所在的位置
+mysql> show databases;
+默认存在４个库，其中一个是虚拟库，不占用物理空间
+2.创建新库
+mysql> create database 库名;
+库名存在命名规则：(1)不能纯数字
+　　　　　　　　　(2)区分大小写，具有唯一性
+　　　　　　　　　(3)不可以使用指令关键字，特殊字符
+3.切换库
+mysql> use 库名;
+mysql> select database();          //显示当前所在库的库名
+4.查看库下的表
+mysql> show tables;
+5.删除库
+mysql> drop database 库名;
+
+建表
+表中每一行叫做记录，每一列叫做字段
+1.查看已有的表
+2.建表
+mysql> create table 库名.表名(
+name 字段类型(宽度)　约束条件,
+age  字段类型(宽度)　约束条件,           --------------->()内的宽度为显示宽度,宽度不够用空格补
+sex  字段类型(宽度)　约束条件
+)DEFAULT CHARSET=utf8;            -------->//DEFAULT CHARSET=utf8，设定字符集，utf8包含中文字符集
+3.查看表结构
+mysql> desc 表名
+
+4.查看表记录
+mysql> select * from 表名;      　　　　　　　//查看表记录
+mysql> insert into 表名 values(),();     //插入表记录
+mysql> update 表名 set 字段=值;              //修改表记录
+mysql> delete from 表名;                      //删除表记录
+mysql> drop table 表名;                       //删除表
+==========================================================================================
+基本注意事项
+\c  结束该条命令的执行，打在；之前
+
+
+常见SQL操作指令
+DDL数据定义语言(create alter drop)
+DML数据操作语言(insert update delete)
+DCL数据控制语言(grant revoke)
+DTL数据事物语言(commit rollback savepoint)
+
+mysql> show create table 表名;        //查看建表命令
+mysql> careate 
+
+
+MySQL 数据类型
+数值：　整数　小数　正整数　负整数
+字符型：
+枚举型：列举之后进行选择
+日期时间型
+
+
+数值类型
+整数型:
+浮点数: FLOAT 单精度浮点数
+      DOUBLE 双精度浮点数
+      DECIMAL 对DECIMAL(M,D),其中M为有效位数，D为小数位数，M应该大于D，占用M+2字节
+unsigned 使用无符号存储范围
+zerofill 宽度未达到设定的长度,左边用0补齐
+例：
+mysql> create table game.t2( age tinyint(4) unsigned, money FLOAT(9,2) );
+mysql> insert into t2 value(25,2985.12),(27,12235.35);
+
+
+字符类型
+定长:char(字符数)
+--最大长度255字符
+--不够指定字符数时在右边用空格补齐
+--字符数段超出时，无法写入数据
+变长:varchar(字符数)
+--按实际大小分配存储空间，必须指定宽度
+--字符数段超出时，无法写入数据,存储范围0~65531
+大文本数据:text/blob
+--字符数大于65535存储时使用
+
+
+日期时间类型
+日期时间,DATETIME
+－－占用8个字节
+－－范围: 1000-01-01 00:00:00.000000 ~ 9999-12-31 23:59:59.999999
+日期时间,TIMESTAMP
+－－占用4个字节
+－－范围: 1970-01-01 00:00:00.000000 ~ 2038-01-19 03:14:07.999999
+日期,DATE
+--占用4个字节
+--范围：0001-01-01 ~ 9999-12-31
+年份,YEAR
+--占用1个字节
+--范围：1901 ~ 2155
+时间,TIME
+--占用3个字节
+--格式：HH:MM:SS
+
+枚举类型
+字段的值，只能从列举的值例选择
+ENUM()单选
+--定义格式：enum(值1，值2，值N)
+SET()多选
+--定义格式：set(值1，值2，值N)
+
+时间函数
+now()        获取日期和时间
+year()       获取指定时间中的年
+sleep(N)     休眠N秒
+curdate()    获取当前的系统日期
+curtime()    获取当前的系统时刻
+month()      获取指定时间中的月份
+date()       获取指定时间中的日期
+time()       获取指定时间中的时刻
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

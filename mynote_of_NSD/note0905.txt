@@ -1,0 +1,24 @@
+KVM虚拟机构成
+XXX.xml    配置文件
+/etc/libvirt/qemu/ ------>虚拟机配置文件 
+
+
+XXX．qcow2/img/vol    镜像文件
+/var/lib/libvirt/images/------->虚拟器镜像文件
+
+
+#cd /etc/libvirt/qemu
+#virsh list --all     //查看虚拟机
+#virsh start rh7_node50   //开机
+#virsh undefine rh7_node50  //删除对应的配置文件
+#virsh console        //不通过IP远程连接主机
+Ctrl + ]              //退出console模式
+
+#ssh IP "命令"           //远程输入命令
+
+#for i in mysql{50..56}
+>do
+>ssh-copy-id $i
+>done                       //免密 
+
+createrepo                //自定义yum源

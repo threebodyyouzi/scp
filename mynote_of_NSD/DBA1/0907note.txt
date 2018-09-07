@@ -1,0 +1,170 @@
+约束条件的作用:表名
+限制如何给字段赋值
+约束条件:
+NULL          允许为空,默认设置
+NOT NULL      不允许为空
+Key           索引类型
+Default       设置默认值,缺省为NULL
+Extra         额外设置,这个字段的值是否自动生长
+==========================================================================================
+修改表结构
+--Alter table 表名 执行动作;
+                      |----add       添加字段
+                      |----modify    修改字段类型
+                      |----change    修改字段名
+                      |----Drop      删除字段
+                      |----Rename    修改表名
+添加新字段
+--Alter table 表名 add 字段名 类型(宽度) 约束条件;
+                                                       ^--可加after 或者 first 字段名;
+修改字段类型
+--Alter table 表名 modify 字段名 类型(宽度) 约束条件; 
+                                                           ^--可加after 或者 first 字段名;
+修改字段名
+--Alter table 表名 change 源字段名 新字段名 类型(宽度) 约束条件;
+删除字段
+--Alter table 表名 drop 字段名;
+修改表名
+--Alter table 表名 rename 新表名;
+==========================================================================================
+mysql键值
+作用一:限制如何给字段赋值
+作用二:给字段的值排队
+
+普通索引   index
+主键        primary key
+外键        foreign key
+======================
+1.索引介绍
+--索引是对记录集的多个字段进行排序的方法
+--类似于书的目录
+--给表的字段创建索引
+--索引类型(相当于算法):BTree、B+Tree、Hash
+                        ^默认算法
+2.索引的优点
+--通过创建唯一性索引,可以保证数据库表中每一行数据的唯一性
+--可以加快数据的检索速度
+3.索引的缺点
+--当对表中的数据进行增加、删除和修改的时候,索引也要动态维护,降低了数据的维护速度
+--索引需要占物理空间
+4.索引的使用:使用规则、查看、创建、删除
+(1)使用规则
+--一个表中可以有多个INDEX字段
+--INDEX字段的KEY标志是MUL
+--字段的值允许有重复,且可以赋空值
+(2)查看表中是否创建索引
+>desc 表名
+//key值空白则没有索引字段
+查看索引的详细信息
+>show index from 表名
+(3)创建索引
+建表时创建index字段
+>create table 表名(...index(字段名1),index(字段名2));
+给已有表创建索引字段
+>create index 索引名 on 表名(字段名);
+(4)删除索引
+>drop index 索引名 on 表名;
+==========================
+primary key 使用规则
+(1)一个表中只能有一个主键规则
+(2)对应的字段值不允许有重复,且不允许赋NULL值
+(3)主键字段的key标志是PRI
+(4)通常与AUTO_INCREMENT连用,实现字段值的自动增长
+
+建表创建主键
+>create table t28(
+id int(4) AUTO_INCREMENT,
+name varchar(4) NOT NULL,
+age int(2) NOT NULL,
+PRIMARY KEY(id)
+);
+ 
+已有表中建立主键
+>alter table 表名 add primary key(字段名)
+
+复合主键
+表中多个字段做主键,作主键字段的值不允许同时重复
+例:
+mysql> create table zfb(
+    -> name char(10),
+    -> stu_id int(2),
+    -> pay enum('yes','no'),
+    -> primary key(name,stu_id)
+     ->);
+
+删除主键
+> alter table zfb drop primary key;
+
+===============================
+外键的使用
+外键:让当前表字段的值在另外一张表中字段值的范围内选择
+一.使用规则
+--表的存储引擎必须是innodb
+--字段类型要一致
+--被参照字段必须要是索引类型的一种(primary key)
+二.创建外键
+>foreign key(表A的字段名) references 表B(字段名) on update cascade      //同步更新
+                                                 delete cascade      //同步删除
+例:
+mysql> create table jfb(
+    -> fname char(10) primary key,
+    -> pay float(7,2) default 25600
+    -> )engine=innodb;
+mysql> create table xfb(
+    -> xname char(10),
+    -> sex enum('male','fmale','?') default 'male',
+    -> foreign key(xname) references jfb(fname) on update cascade on delete cascade
+    -> )engine=innodb;
+
+三.测试
+四.删除外键
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
