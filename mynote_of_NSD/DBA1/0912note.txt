@@ -1,0 +1,79 @@
+多表查询
+
+复制表:
+作用:快速建表,备份表
+格式:
+--create table yyy select * from xxx;           //将源表xxx复制为新表yyy
+
+
+多表查询:也称连接查询
+--将2个或2个以上的表按某个条件连接起来,从中选取需要的数据
+--当多个表中存在相同意义的字段时,可以通过该字段链接多个表
+格式:
+--select 字段名列表 from 表a,表b;
+--select 字段名列表 from 表a,表b where 条件;
+
+where嵌套查询
+把内层的查询结果作为外层查询的查询结果
+格式:
+--select 字段名列表 from 表名 where 条件
+                                   ^( select 字段名列表 from 表名 where 条件);
+
+
+左链接查询:条件成立时,已左表为主显示查询结果
+右链接查询:条件成立时,已右表为主显示查询结果
+作用:比较相同表结构里数据的差异
+格式:
+--select 字段名 from 表A left join 表B on 条件表达式         //以表A为参考作比较
+--select 字段名 from 表A right join 表B on 条件表达式        //以表B为参考作比较
+
+
+===========================================================
+用户授权与权限撤销
+1.root本机密码恢复
+(1)修改配置文件
+#vim /etc/my.cnf
+[mysqld]
+skip-grant-tables                     //跳过密码验证
+(2)修改密码
+mysql>select host,user,authentication_string from mysql.user;    //查询密码
+mysql>update mysql.user set authentication_string=password("新密码")
+     >where
+     >user="root" and host="localhost";                           //修改密码
+mysql>flush privileges;                                           //刷新表结构
+ 
+
+2.MySQL修改数据库管理员源密码
+#mysqladmin -hlocalhost -uroot -p password "新密码"
+Enter password:                          //输入旧密码
+
+3.MySQL用户管理,在数据库服务器添加新用户,并设置访问权限
+基本用法:
+--grant 权限列表 on 库名.表名 to 用户名@'客户端地址' identified by '密码'   //设置密码
+  [with grant option]                                         //是否有授权权限
+--revoke 权限列表 on 库名.表名 from 用户名@"客户端地址";                //撤销权限
+权限列表:
+(1)all:匹配所有权限
+(2)select,update,insert
+(3)select,update(字段1,...,字段N)
+客户端地址:
+(1)% : 匹配所有主机
+(2)192.168.1.% : 匹配指定的一个网段
+(3)192.168.1.1 : 匹配指定IP地址的单个主机
+(4)%.tarena.com : 匹配一个DNS区域
+(5)svr1.tarena.com : 匹配指定域名的单个主机
+
+测试:
+mysql>select user()                   //查看当前登入信息
+mysql>select @@hostname;              //显示主机名
+mysql>show grants;                    //查看当前登入用户权限 
+
+mysql>select Host,User from mysql.user;    //查看赋权用户
+mysql> show grants for mydba@'%';          //查看赋权信息
+
+mysql> grant all on db5.* to dc@"192.168.4.51" identified by "123qqq...A" with grant option;
+mysql> grant insert on mysql.* to dc@'192.168.4.51';
+
+
+授权用户连接后修改密码
+--set password=password("新密码");

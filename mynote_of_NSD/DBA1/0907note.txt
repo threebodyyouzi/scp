@@ -64,6 +64,8 @@ mysql键值
 >create index 索引名 on 表名(字段名);
 (4)删除索引
 >drop index 索引名 on 表名;
+(5)验证
+>explain select * from 表名 where 字段名=表记录
 ==========================
 primary key 使用规则
 (1)一个表中只能有一个主键规则
@@ -118,7 +120,8 @@ mysql> create table xfb(
 
 三.测试
 四.删除外键
-
+mysql> show create 表名    //查看约束名
+mysql> alter table 表名 drop foreign key 约束名;
 
 
 

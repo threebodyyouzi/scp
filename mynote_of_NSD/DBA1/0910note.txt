@@ -1,0 +1,169 @@
+存储引擎
+作为可插拔的组件提供
+--mysql自带的功能程序,处理表的处理器
+--不同的存储引擎有不同的功能和数据存储方式
+默认的存储引擎
+--Mysql 5.0/5.1 ---> myisam
+--Mysql 5.5/5.6 ---> innodb
+
+列出可用的存储引擎类型
+>show engines;
+
+修改默认存储引擎
+#vim /etc/my.cnf
+[mysqld]
+default-storage-engine=myisam
+
+innodb引擎拥有的特点
+--事务:一次sql操作,从开始建立连接-执行各种sql命令-到断开连接,这个过程被称为事务
+--事务回滚:事务执行时,任意一次操作没成功,会恢复之前的所有操作
+行级锁:
+加了锁的行,其他终端不能访问相同行数,避免同时写造成的冲突
+
+MyISAM存储引擎
+--支持表级锁
+.frm文件-----存储表结构信息(desc 表名)
+.MYI文件-----存储表索引信息
+.MYD文件-----存储表里数据的信息
+每种类型的文件用独立的文件来存储,独享表空间
+
+Innodb存储引擎
+--支持行级锁
+--支持事务、事务回滚、外键
+相关表文件:
+.frm文件-----存储表结构信息(desc 表名)
+.ibd文件-----存储表索引和表里数据
+ibdata1----事务日志文件
+ib_logfile0---事务日志文件
+ib_logfile1---事务日志文件
+
+mysql锁机制
+·锁粒度
+-表级锁:一次直接对整张表进行加锁
+-行级锁:只锁定某一行
+-页级锁:对整个页面(MySQL管理数据的基本存储单位)进行加锁
+·锁类型
+-读锁(共享锁):支持并发读
+-写锁(互斥所、排它锁):是独占锁,上锁期间其他线程不能读表或写表
+·查看当前的锁状态
+>show status like 'table_lock%';
+
+事务特性
+·原子性
+事务的整个操作是一个整体,不可分割,要么全部成功,要么全部失败
+·一致性
+事务操作的前后,表中的记录没有变化
+·隔离性
+事物的操作是相互隔离不受影响的
+·持久性
+数据一旦提交,不可改变,永久改变表数据
+
+例:
+mysql>show variables like "autocommit";        //查看提交状态
+mysql>set autocommit=off;                      //关闭自动提交(临时修改)
+mysql>rollback;                                //数据回滚
+mysql>commit;                                  //提交数据
+#vim /etc/my.cnf
+autocommit=0                                   //关闭自动提交(永久修改)
+
+执行select操作多的表 适合使用myisam存储引擎 节省系统资源
+=========================================================
+数据管理
+设置搜索路径
+#mkdir /myload
+#vim /etc/my.cnf
+[mysqld]
+secure_file_priv='/myload'
+
+数据导入:把系统文件的内容存储到数据库服务器的表里
+         系统文件内容不可以杂乱无章,必须要有一定的格式
+格式:
+>> load data infile "目录名/文件名"  
+   into table 表名
+   fields terminated by "分隔符"
+   lines terminated by "\n";
+
+例:
+mysql> create table user(
+    -> name char(30),
+    -> password char(1),
+    -> uid int(2),
+    -> gid int(2),
+    -> comment char(150),
+    -> homedir char(150),
+    -> shell char(30),
+    -> index(name));                                  //创建表
+mysql> system cp /etc/passwd /var/lib/mysql-files/    
+//指令前加system执行系统命令
+mysql> load data infile "/var/lib/mysql-files/passwd"  
+    -> into table user
+    -> fields terminated by ":"
+    -> lines terminated by "\n";
+  
+数据导出:
+格式:
+>select * from 表名                                  //导出内容取决于sql查询
+ into outfile "/var/lib/mysql-files/文件名"
+ fields terminated by "分隔符"
+ lines terminated by "\n";
+
+管理表记录:
+>insert into 表名 values(字段值1),(字段值2),(字段值3);   //增加记录
+>select 字段1,...字段N from 表名 where 条件表达式;          //查询表记录
+>update 表名 set 字段1=字段1的值..;                            //更新表记录
+>delete from 表名 where 条件表达式;                           //删除符合条件的记录
+
+匹配条件:
+基本匹配:
+--数值比较
+--字符比较/匹配空/非空
+--逻辑匹配:or       //逻辑或
+        and      //逻辑与
+          !           //逻辑非
+          ()          //提高优先级
+--范围内匹配/去重
+in(值列表)               //在...里
+not in(值列表)           //不在...里
+between 数字1 and 数字2    //在...之间
+distinct  字段名            //去重显示
+
+
+===========================================================
+模糊查询
+基本用法
+--where 字段名 like '通配符' 
+--_匹配单个字符,%匹配多个字符
+
+正则表达式
+--where 字段名 regexp '正则表达式'
+
+查询结果排序
+--SQL查询 order by 字段名 [asc|desc];     //asc从小到大排,desc从大到小排
+
+查询结果过滤
+--SQL查询 group by 字段名 having 条件表达式    //查询结果分组,有去重效果
+
+限制查询结果显示行数
+--SQL查询 limit N;       //显示查询结果前N条记录
+--SQL查询 limit N,M      //从N行开始输出,显示M行
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
