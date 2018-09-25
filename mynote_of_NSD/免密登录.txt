@@ -1,0 +1,10 @@
+MHA 50-57
+两两互相免密登录
+任意两台虚拟机可以免密登录
+ssh 非对称加密 
+private key ----- public key
+
+
+第一次认证的时候去掉(yes/no),修改配置文件
+vim /etc/ssh/ssh_config
+#sed -i '35s/#//;s/ask/no/' /etc/ssh/ssh_config

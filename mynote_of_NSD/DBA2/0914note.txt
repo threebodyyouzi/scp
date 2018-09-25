@@ -1,0 +1,134 @@
+Mysql主从同步
+让从数据库服务器自动重复主数据库上的数据到本机
+实现数据的自动备份
+
+主数据库服务器:接受客户端访问的数据库服务器
+从数据库服务器:自动同步主数据库上的数据到本机
+
+部署Mysql主从同步
+主数据库的配置步骤:客户端存储数据的服务适合做主库
+(1)启用binlog日志
+#vim /etc/my.cnf
+[mysqld]
+server_id=51
+log-bin=db51
+binlog_format="mixed"
+(2)用户授权
+>grant replication slave on *.* to repluser@'%' identified by "123qqq...A";  //replication slave同步权限
+(3)查看日志信息
+>show master status;
+
+从数据库的配置步骤:
+(1)指定server_id
+#vim /etc/my.cnf
+[mysqld]
+server_id=52
+(2)指定主库信息
+mysql> show slave status;
+mysql>change master to master_host="192.168.4.51",  //主库IP 
+      > master_user="repluser",                     //授权的用户名
+       >master_password="123qqq...A",              //授权的密码
+        >master_log_file="db51.000001",            //主库的binlog日志文件名
+         >master_log_pos=441;                      //主库binlog日志当前偏移量
+(3)启动slave程序
+mysql>start slave;
+(4)查看slave程序状态
+mysql> show slave status\G
+Slave_IO_Running: Yes
+Slave_SQL_Running: Yes                   //都是yes才算启动
+
+客户机测试(192.168.4.50)
+(1)在主库51主机上授权访问用户
+mysql> grant select,insert on db6.* to yaya@'%' identified by "123qqq...A";
+(2)在客户机50上访问增加信息
+# mysql -h192.168.4.51 -uyaya -p"123qqq...A"
+mysql> insert into db6.a values(321);
+(3)从库52查看插入的信息
+mysql> select * from db6.a;
+
+192.168.4.51 主
+192.168.4.52 从
+192.168.4.50 客户机
+做主从同步前,要保证从库上要有主库的数据(用mysqldump从主库导出,再将文件scp到从库服务器上)
+=======================
+原理:
+从库读取主库的日志文件db51.000001,
+I/O线程:把SQL命令拷贝到自己的中继日志文件里mysql52-relay-bin.000001
+SQL线程:读取中继文件中的SQL命令并执行
+
+排错:
+mysql> show slave status\G
+Last_IO_Error:记录I/O线程报错信息
+Last_SQL_Error:记录SQL线程报错信息
+
+===========================================================================
+查看slave状态
+从库数据库下的相关配置文件:
+master.info             主库信息
+relay-log.info          中继日志信息
+主机名-relay-bin.xxxxxx   中继日志
+主机名-relay-bin.index    索引文件
+
+==========================
+临时取消同步
+mysql>stop slave;
+
+永久取消同步
+cd /var/lib/mysql
+# rm -rf master.info relay-log.info
+# rm -rf mysql52-relay-bin.*
+# systemctl restart mysqld
+==============================
+主库选项配置
+binlog_do_db=name:设置Master对哪些库记日志
+binlog_ignore_db=name:设置Master对哪些库不记日志
+从库选项配置
+log_slave_update:记录从库更新,允许链式复制(A-->B-->C)
+relay_log=dbsvr2-relay-bin:指定中继日志文件名
+replicate_do_db=mysql:仅复制指定库,其他库将被忽略,可设置多条
+replicate_ignore_db=test:不复制哪些库,其他库将被忽略
+
+
+===========================================================================
+Mysql主从同步结构模式
+
+基本应用
+--单项复制:主----->从
+扩展应用
+--链式复制:主----->从----->从
+--互为主从:主<----->主
+--一主多从:从<-----主----->从
+
+
+mysql主从同步复制模式
+(1)全同步模式
+--主库执行完一次事务后,且所有从库都执行了该事务后才返回客户端
+(2)异步模式
+--主库执行完一次事务后,立即将结果返回客户端,并不关心从库是否已经接受并处理
+(3)半同步模式
+--主库执行完一次事务后,等待至少一个库接受并写到relay log中才返回客户端
+=============================================
+半同步模式
+1.查看是否支持动态加载模块(默认开启)
+mysql>show variables like "have_dynamic_loading";
+2.命令行加载模块(马上生效,只要不重启服务一直有效)
+mysql>install plugin rpl_semi_sync_master soname 'semisync_master.so';    //主库加载半同步模块
+mysql> install plugin rpl_semi_sync_slave soname 'semisync_slave.so';   
+3.启用半同步功能(临时有效)
+mysql> set global rpl_semi_sync_master_enabled=1;
+mysql> set global rpl_semi_sync_slave_enabled=1;
+4.写在配置文件里永久有效
+#vim /etc/my.cnf
+[mysqld]
+plugin-load="rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+rpl_semi_sync_master_enabled=1
+rpl_semi_sync_slave_enabled=1
+
+
+
+
+
+
+
+
+

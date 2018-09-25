@@ -1,0 +1,87 @@
+数据分片
+一.工作过程
+当mycat收到一个SQL查询时
+– 先解析这个SQL查找涉及到的表
+– 然后看此表的定义,如果有分片规则,则获取SQL里分片字段的值,并匹配分片函数,获得分片列表
+– 然后将SQL发往这些分片去执行
+– 最后收集和处理所有分片结果数据,并返回到客户端
+
+二.配置mycat
+1.修改配置文件
+• 目录结构说明
+– bin //mycat命令,如 启动 停止 等
+– catlet //扩展功能
+– conf //配置文件
+– lib //mycat使用的jar
+– log //mycat启动日志和运行日志
+– wrapper.log //mycat服务启动日志
+– mycat.log //记录SQL脚本执行后的报错内容
+
+2.修改配置文件
+(1)重要配置文件说明
+– server.xml //设置连mycat的账号信息,用户名、密码
+– schema.xml //配置mycat的真实库表
+– rule.xml //定义mycat分片规则
+(2)配置标签说明
+– <user>.. ..</user>
+//定义连mycat用户信息
+– <datanode>.. ..</datanode>
+//指定数据节点
+– <datahost>.. ..</datahost>
+//指定数据库地址及用户信息
+(3)修改server.xml文件(定义连接用户)
+<user name="test">
+       <property name="password">123456</property>
+       <property name="schemas">TESTDB</property>
+</user>                                              //以test用户,密码为123456登录时有权限访问TESTDB库
+
+<user name="user">
+     <property name="password">123456</property>
+     <property name="schemas">TESTDB</property>
+     <property name="readOnly">true</property>
+</user>                                           //以user用户,密码为123456登录时有权限查看TESTDB库
+(4)修改schema.xml(定义)
+<schema name="TESTDB" checkSQLschema="false" sqlMaxLimit="100">   //逻辑库名,与server.xml定义的一致
+     <table name="travelrecord" dataNode="dn1,dn2" rule="auto-sharding-long" />    //table name表名;dataNode数据节点的名字,即数据库服务器名;auto-sharding-long范围约定
+(5)根据配置文件的设置,在对应的服务器上建库和授权用户
+54:
+#vim /etc/my.cnf
+lower_case_table_names = 1   //表名忽略大小写
+mysql> create database db1;
+mysql> grant all on *.* to root@'%' identified by "123qqq...A";
+55:
+#vim /etc/my.cnf
+lower_case_table_names = 1   //表名忽略大小写
+mysql> create database db2;
+mysql> grant all on *.* to root@'%' identified by "123qqq...A";
+(6)启动服务
+]# /usr/local/mycat/bin/mycat start
+]# ss -antpu|grep 8066
+
+<table name="employee" primaryKey="ID" dataNode="dn1,dn2" rule="sharding-by-intfile" />
+<rule>
+        <columns>sharding_id</columns>
+        <algorithm>hash-int</algorithm>
+</rule>
+//employee表中需要有sharding_id这个字段,字段值为10000时存入db1,字段值为100010时存入db2
+
+=================================================
+分片规则
+1 枚举法 sharding-by-intfile
+2 固定分片 rule1
+3 范围约定 auto-sharding-long
+4 求模法 mod-long
+5 日期列分区法 sharding-by-date
+6 通配取模 sharding-by-pattern
+7 ASCII码求模通配 sharding-by-prefixpattern
+8 编程指定 sharding-by-substring
+9 字符串拆分hash解析 sharding-by-stringhash
+10 一致性hash sharding-by-murmur
+
+
+
+
+
+
+
+

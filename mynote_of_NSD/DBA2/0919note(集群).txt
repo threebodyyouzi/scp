@@ -1,0 +1,131 @@
+部署mysql高可用集群(MHA+一主多从)
+配置高可用集群:
+mysql -h MysqlIP -u授权用户 -p密码
+]#mysql -h VIP -u授权用户 -p密码     
+客户端连接VIP来登录数据库,当主库宕机后,MHA服务器将VIP自动分配给备用主库
+=====================================================
+1.把规划使用的VIP地址192.168.4.100部署到当前的主数据库服务器上
+51]#ifconfig eth0:1 192.168.4.100
+2.在所有数据节点上授权监控用户(主库授权,从库查询)
+mysql> grant all on *.* to root@'%' identified by '123qqq...A';
+3.在所有数据库服务器及管理主机上安装mha_node包
+4.在管理主机56上安装mha_manager
+]# tar -xf mha4mysql-manager-0.56.tar.gz 
+]# cd mha4mysql-manager-0.56/
+]# yum -y install perl-CPAN*
+]# perl Makefile.PL
+]# make && make install
+5.创建管理命令,把源码包里的命令拷贝到系统目录下
+56]#cp -r bin/ /root/
+6.配置master主节点
+(1)开启半同步
+#vim /etc/my.cnf
+[mysqld]
+rpl_semi_sync_master_enabled=1
+rpl_semi_sync_slave_enabled=1
+relay_log_purge=off
+(2)在所有数据库服务器上,禁用自动删除中继日志文件
+mysql>set global relay_log_purge=off;
+7.在管理主机上创建管理服务的主配置文件
+]# mkdir /etc/mha_manager/
+]# cp conf/app1.cnf /etc/mha_manager/
+8.编辑主配置文件
+(1)
+]# vim /etc/mha_manager/app1.cnf 
+
+[server default]
+manager_workdir=/etc/mha_manager           //管理服务的工作目录
+manager_log=/etc/mha_manager/manager.log   //管理服务日志文件的存放位置
+master_ip_failover_script=/etc/mha_manager/master_ip_failover  //自动failover的切换脚本,主库宕机自动分配VIP给备用主库
+
+ssh_user=root                               //ssh远程连接的用户名和端口号
+ssh_port=22                               
+repl_user=repluser                        //主从同步授权的用户名和密码
+repl_password=123qqq...A                  
+user=root                               //监控用户的账户密码
+password=123qqq...A
+
+[server1]                  //给服务器起名为server1
+hostname=192.168.4.51      //服务器的IP
+port=3306
+candidate_master=1         //设置为候选master
+[server2]
+...
+[server3]
+...
+[server4]
+hostname=192.168.4.54
+port=3306
+no_master=1               //不竞选master
+[server5]
+...
+
+
+(2)根据配置文件的设置,在对应数据库服务器上有对应的授权用户
+mysql>select host,user from mysql.user where user="repluser";            //51、52、53查询主从同步授权用户
+mysql>select host,user from mysql.user where user="root" and host="%";   //51..55查询监控用户
+若备用的主库52和53 没有repluser用户:手动在本机添加授权用户
+mysql>grant  replication slave  on  *.*  to repluser@"%"  identified by "123qqq...A";
+
+(3)master_ip_failover脚本修改
+#vim /etc/mha_manager/master_ip_failover
+从第33行开始添加如下行:
+my $vip = '192.168.4.100/24';                                           //Virtual IP 
+my $key = "1";                                                             
+my $ssh_start_vip = "/sbin/ifconfig eth0:$key $vip";                    //将VIP地址添加到目标主机eth0:1上
+my $ssh_stop_vip = "/sbin/ifconfig eth0:$key down";
+================================================================================
+三.测试配置
+3.1 测试配置文件是否正确 测试ssh配置 测试主从同步配置
+(1)在管理节点上做ssh检查
+# masterha_check_ssh --conf=/etc/mha_manager/app1.cnf
+(2)在管理节点上查看集群状态
+# masterha_check_repl --conf=/etc/mha_manager/app1.cnf
+
+3.2启动MHA_Manager(会占用一个终端)
+# masterha_manager --conf=/etc/mha_manager/app1.cnf --remove_dead_master_conf --ignore_last_failover
+新增文件:
+app1.master_status.health    //健康检查文件,指定master
+
+选项:
+(1)--remove_dead_master_conf //删除宕机主库配置
+(2)--ignore_last_failover    //忽略xxx.health文件
+查看状态:
+# masterha_check_status --conf=/etc/mha_manager/app1.cnf
+停止服务:
+# masterha_stop --conf=/etc/mha_manager/app1.cnf
+
+========================================================================
+把宕机的主机51 重新加入集群
+1.启动主机51上的数据库服务器
+#systemctl restart mysqld
+mysql>show master status;
+mysql>show slave status\G
+
+2.把主机51配置为当前主库52的从库
+mysql>change master to master_host="192.168.4.52",  //主库IP 
+      > master_user="repluser",                     //授权的用户名
+       >master_password="123qqq...A",              //授权的密码
+        >master_log_file="db52.000009",            //主库的binlog日志文件名
+         >master_log_pos=154; 
+3.修改管理主机56的app1.cnf 添加主机51的信息
+
+4.启动管理服务
+]# masterha_manager --conf=/etc/mha_manager/app1.cnf --remove_dead_master_conf --ignore_last_failover
+5.查看服务信息
+]# masterha_check_status --conf /etc/mha_manager/app1.cnf 
+
+===============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+

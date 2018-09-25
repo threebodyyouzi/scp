@@ -1,0 +1,160 @@
+一.配置数据读写分离
+1.1数据读写分离:
+把客户端查询数据和写入数据的请求分别给不同的数据库服务器处理
+1.2实现方式:
+通过服务方式 在客户端使用程序实现(人为分离)
+1.3配置Mysql一主一从结构
+
+二.配置代理服务器(接受客户端访问数据库服务器的连接请求)
+2.1装包
+2.2修改配置文件
+#cp /etc/maxscale.cnf /etc/maxscale.cnf.bak                     //将配置文件进行备份
+#vim /etc/maxscale.cnf
+[maxscale]
+threads=auto               //线程的数量,auto根据CPU内核的大小来自动决定
+
+[server1]                          //给第一台服务器起的名字
+type=server
+address=192.168.4.51                 //IP地址
+port=3306
+protocol=MySQLBackend
+
+[server2]                          //给第二台服务器起的名字
+type=server
+address=192.168.4.52                  //IP地址
+port=3306
+protocol=MySQLBackend
+
+[MySQL Monitor]                                //监视是否运行,主从状态
+type=monitor
+module=mysqlmon
+servers=server1,server2                       //要监视的服务器名字
+user=scalemon                                   //授权用户的名字和密码
+passwd=123qqq...A
+monitor_interval=10000
+
+[Read-Only Service]                         //指定只读服务器(一般只指定从服务器),不需要则注释
+type=service
+router=readconnroute
+servers=server1
+user=myuser
+passwd=mypwd
+router_options=slave
+
+[Read-Write Service]                       //指定读写服务器
+type=service
+router=readwritesplit
+servers=server1,server2
+user=scaleuser                             //路由用户用该用户登录server1、server2,检查客户端指定的用户是否存在
+passwd=123qqq...A
+max_slave_connections=100%
+
+#[Read-Only Listener]                      //只读服务的监听端口号
+#type=listener
+#service=Read-Only Service
+#protocol=MySQLClient
+#port=4008
+
+2.3根据配置的设置,创建对应的授权用户
+mysql> grant replication slave,replication client on *.* to scalemon@'%' identified by '123qqq...A';
+mysql> grant select on mysql.* to scaleuser@'%' identified by '123qqq...A';
+
+2.4启动服务
+]# maxscale --config=/etc/maxscale.cnf
+
+2.5在代理服务器访问管理服务查看监控状态
+]# maxadmin -uadmin -pmariadb -P4016
+MaxScale> list servers;
+2.6在客户端53 访问50 存储数据 和 查询数据
+]# mysql -h192.168.4.50 -uadmin -p123qqq...A -P4006
+
+============================================================================
+三.mysql多实例
+在一台物理主机上运行多个数据库服务
+
+2.配置文件参数说明
+主配置文件/etc/my.cnf
+– 每个实例要有独立的数据库目录和监听端口号
+– 每个实例要有独立的实例名称和独立的sock文件
+
+[mysqld_multi]                                 //启用多实例
+mysqld=/usr/local/mysql/bin/mysqld_safe      //指定进程文件路径
+mysqladmin=/usr/local/mysql/bin/mysqladmin   //指定管理命令路径
+user=root                                    //指定进程用户
+
+[mysqldX]                                     //实例进程名称 ,X表示实例编号,如 [mysql2]
+port=3307                                     //端口号
+datadir=/data3307                             //数据库目录 ,要手动创建
+socket=/data3307/mysql.sock                   //指定sock文件的路径和名称
+pid-file=/data3307/mysqld.pid               //进程pid号文件位置
+log-error=/data3307/mysqld.err              //错误日志位置
+
+3.初始化数据库
+bin]# ./mysqld --user=mysql --basedir=软件安装目录 --datadir=数据库目录 --initialize   //初始化授权库
+]# mysqld_multi start 实例编号                                                         //启动实例进程,会自动执行初始化命令
+bin]# ./mysqld_multi --user=root --password=密码 stop 实例编号                           //停止实例进程
+
+4.客户端访问
+bin]# ./mysql -uroot –p初始密码 -S sock文件
+mysql> alter user user() identified by '新密码';
+=============================================================================
+dev.mysql.com/doc/
+优化
+优化网络(网络带宽)
+优化硬件(查看服务器运行时 CPU和内存的使用情况)
+优化数据库服务的配置参数(并发连接数 超时时间 索引缓存 重复使用的线程数量)
+
+mysql> show processlist;                     //查看当前有谁链接该服务器
+mysql> show status;                          //查看当前状态信息
+mysql> show variables;                       //查看变量的值
+
+在数据库服务器上启用慢查询日志文件,记录超过指定时间显示查询结果的sql命令
+
+生产环境下,需要优化的变量
+1.并发连接数max_connections
+>set global max_connections=500;
+>show global status like "max_used_connections";        //查看历史最大连接数
+设置的数值大小:历史最大连接数/并发连接数≈85%
+
+2.连接超时时间connect_timeout
+等待连接超时,默认10秒,仅登录时有效
+不易调太大,防止攻击
+3.锁表时间innodb_lock_wait_timeout
+多个客户端访问同个表时,数据库会对表加写锁,同时访问时会发生死锁,每个人都在等待对方解锁  
+4.等待时间wait_timeout
+连上数据库后,等待你执行命令的等待时间
+5.关键索引缓存大小key_buffer_size(单位字节)
+*.myi---/var/lib/mysql  硬盘上的索引文件
+key_buffer_size默认从系统的物理内存中自动划分对应的空间作为缓存
+6.允许保存在缓存中被重用的线程数量
+thread_cache_size
+7.查询缓存
+mysql> show variables like "query_cache_%";
+query_cache_type = 0|1|2     
+0 禁用查询缓存
+1 启用查询缓存
+2 启用查询缓存,但需要手动设置缓存本次的查询结果
+
+8.启用慢查询
+log-error=/var/log/mysqld.log  错误日志文件(默认启用)
+log-bin=日志名 binlog文件
+查询日志 记录数据库服务执行过的所有sql命令
+#vim /etc/my.cnf
+general-log        //所有SQL命令都被记录 
+慢查询日志 记录超过指定时间显示查询结构的sql命令,默认超时时间是10S
+#vim /etc/my.cnf
+slow-query-log 启用慢查询
+slow-query-log-file 指定慢查询日志文件
+
+#mysqldumpslow mysql55-slow.log >/tmp/sql.txt
+
+
+
+
+
+
+
+
+
+
+

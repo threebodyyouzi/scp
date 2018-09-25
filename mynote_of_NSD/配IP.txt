@@ -1,0 +1,13 @@
+ip命令 
+#ip addr show               //显示IP
+#ip -s link show           //显示详细信息
+#ip route                  //路由显示
+#ip addr add IP dev eth0   //临时配置IP(不会覆盖)
+
+
+2.#vim /etc/sysconfig/network-scripts/ifcfg-eth0
+bootproto=none/static/dhcp        //开机协议
+ipaddr=IP地址
+prefix=网络位
+gateway
+dns
