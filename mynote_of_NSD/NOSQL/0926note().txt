@@ -1,0 +1,93 @@
+部署Redis集群
+用6台服务器提供服务
+1.准备6台Redis服务器,并指定服务使用的IP地址和端口号
+2.创建集群
+从库不允许存或者查,只是备份用
+2.1 部署集群环境
+# vim /etc/redis/6379.conf
+bind IP地址                                        //只写物理接口IP地址
+daemonize yes                             //守护进程方式运行
+port xxxx                                 //端口号不要使用默认的6379
+cluster-enabled yes                        //启用集群
+cluster-config-file nodes-xxxx.conf       //指定集群信息文件
+cluster-node-timeout 5000                  //请求超时 5 秒
+
+2.2 创建集群
+(1)部署管理主机(51即提供redis服务,又提供管理服务)
+]# yum -y install ruby                   //部署ruby脚本运行环境
+]# yum -y install ruby-devel-2.0.0.648-30.el7.x86_64.rpm 
+]# gem install redis-3.2.1.gem
+]# cd redis-4.0.8/src/
+]# redis-trib.rb help                   //查看命令的帮助信息
+(2)创建集群
+主库至少3台,才能保证高可用
+]# redis-trib.rb create --replicas 1 192.168.4.51:6351 192.168.4.52:6352 192.168.4.53:6353 192.168.4.54:6354 192.168.4.55:6355 192.168.4.56:6356 
+
+2.3 查看集群信息
+192.168.4.56:6356> CLUSTER INFO
+cluster_state:fail                         //集群状态,fail说明不在集群中,ok说明在集群中
+192.168.4.56:6356> CLUSTER NODES           //查看集群里的其他主机(集群节点)
+
+3.工作过程
+3.1 存储集群的工作过程
+(1)槽位数
+只有主库有槽位数,从库不具备槽位数
+范围:0~16383
+创建集群时,把16384个槽位数平均分配给几个主库
+set key values
+key 和 crc16 进行hash运算,得出的值与16384取余,余数的值在哪个主库占用的hash槽范围内,就存储在哪个数据库内
+
+3.2 查看数据的工作过程
+3.3 使用集群存储和查看数据
+4.管理集群(解决单点故障)
+(1)redis-cli命令
+常用选项
+– -h IP地址
+– -p 端口
+– -c 集群模式
+(2)redis-trib.rb脚本
+语法格式
+– redis-trib.rb 选项 参数
+• 选项
+– add-node         //添加master主机
+– check           //检测集群
+– reshard         //重新分片
+– add-node --slave //添加slave主机
+– del-node          //删除主机
+(3)选举maste
+• 停止master 主机的 Redis服务
+– master宕机后对应的slave自动被选举为master
+– 原master启动后 会自动配置为当前master的slaver主机
+• 查看集群主机信息
+– redis-cli -h master_ip -p master_port
+4.1 向集群里添加新主机
+(1)添加master角色主机
+运行redis服务并启用集群配置
+把新的redis服务器添加到集群里
+--添加master主机
+#redis-trib.rb add-node 新主机IP:端口 集群中任意主机IP:端口
+--分配hash槽  
+#redis-trib.rb reshard 192.168.4.51:6351
+– 指定移出hast槽个数
+– 指定接收hash槽主机ID
+– 指定移出hash槽主机ID
+
+(2)添加slave角色主机:192.168.4.57
+--运行redis服务并启用了集群配置
+--把57添加到集群里做slave主机
+#redis-trib.rb add-node --slave [--master-id 主库id号] 192.168.4.57:6357 192.168.4.51:6351     //不知道master-id时默认分配给从库数量最少的主库
+4.2 从集群里删除主机
+4.2.1 移除slave角色的主机
+#redis-trib.rb del-node 192.168.4.51:6351 slave主机id值
+192.168.4.57:6357> CLUSTER RESET
+4.2.2 移除master角色的主机
+# redis-trib.rb reshard 192.168.4.51:6351               //释放hash槽
+# redis-trib.rb del-node 192.168.4.51:6351 maste主机id值 
+192.168.4.50:6350> CLUSTER RESET
+
+没有从库的主库宕机后就无法工作了
+
+
+
+
+

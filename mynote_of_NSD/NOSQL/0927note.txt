@@ -1,0 +1,145 @@
+redis持久化
+redis 数据类型
+一.配置redis主从同步
+1.主从同步结构
+--一主一从
+--一主多从
+--主从从
+
+主从复制工作原理
+2.工作原理
+– slave向master发送sync命令
+– master启动后台存盘进程,并收集所有修改数据命令
+– master完成后台存盘后,传送整个数据文件到slave
+– slave接收数据文件,加载到内存中完成首次完全同步
+– 后续有新数据产生时,master继续将新的数据收集到的修改命令依次传给slave,完成同步
+缺点
+– 网络繁忙,会产生数据同步延时问题
+– 系统繁忙,会产生数据同步延时问题
+
+3.配置从库
+3.1查看主从信息
+– redis服务运行后,默认都是master 服务器
+192.168.4.51:6351> INFO replication
+# Replication
+role:master
+connected_slaves:0
+...
+3.2设置从库传颂之物
+192.168.4.52:6352> SLAVEOF 192.168.4.51 6351  //手动设为从库(临时有效)
+192.168.4.53:6353> SLAVEOF no one             //取消从库
+修改配置文件,永久设置为主库
+]# vim /etc/redis/6352.conf
+slaveof 192.168.4.51 6351
+masterauth 123456
+
+3.3哨兵模式
+– 主库宕机后,从库自动升级为主库
+– 在slave主机编辑sentinel.conf文件
+– 在slave主机运行哨兵程序
+
+]# vim /etc/sentinel.conf
+  sentinel monitor mymaster 127.0.0.1 6379  2
+//sentinel monitor 主机名      ip地址     端口  票数
+//主机名:自定义
+//IP地址:master主机的IP地址
+//端 口:master主机 redis服务使用的端口
+//票 数:主库宕机后, 票数大于1的主机被升级为主库
+  sentinel auth-pass <master-name> <password>
+]# redis-sentinel /etc/sentinel.conf
+
+================================================
+二.redis持久化
+方式一.RDB
+– 数据持久化方式之一
+– 按照指定时间间隔,将内存中的数据集快照写入硬盘,存储数据的文件名默认为dump.rdb
+– 术语叫Snapshot快照
+– 恢复时,将快照文件直接读入内存
+1.使用RDB文件恢复数据:备份dump.rdb 文件到其他位置,停止服务后把备份文件的rdb文件拷贝回数据库目录后,再启动服务即可
+2.相关配置:
+(1)文件名
+– dbfilename “dump.rdb” //文件名
+– save //禁用RDB
+(2)数据从内存保存到硬盘的频率
+– save 900 1 // 900秒内且有1次修改
+– save 300 10 //300秒内且有10次修改
+– save 60 10000 //60秒内且有10000修改
+(3)手动立刻存盘
+– save //阻塞写存盘,执行save过程中,不能存入数据
+– bgsave //不阻塞写存盘
+3.RDB优点/缺点
+(1)优点
+– 高性能的持久化实现 —— 创建一个子进程来执行持久化,先将数据写入临时文件,持久化过程结束后,再用这个临时文件替换上次持久化好的文件;过程中主进程不做任何IO操作
+– 比较适合大规模数据恢复,且对数据完整性要求不是非常高的场合
+(2)缺点
+– 意外宕机时,最后一次持久化的数据会丢失
+方式二.AOF
+– 记录redis服务所有写操作
+– 不断的将新的写操作,追加到文件的末尾
+– 使用cat命令可以查看文件内容
+1.停止服务后把备份的AOF文件拷贝回数据库目录后,再启动服务即可
+2.相关配置参数
+(1)文件名
+– appendfilename "appendonly.aof"  //指定文件名
+– appendonly yes     //启用aof ,默认no
+(2)AOF文件记录写操作的方式
+– appendfsync always //有新写操作立即记录
+– appendfsync everysec //每秒记录一次
+– appendfsync no //从不记录
+(3)修复AOF文件– 把文件恢复到最后一次的正确操作
+
+3.命令启动AOF服务
+]#redis-server /etc/redis/6379.conf --appendonly no
+>info
+>config set appendonly yes
+>bgrewriteaof
+
+=======================================================
+Redis数据类型
+1.字符 string
+(1)set key value [ex seconds] [px milliseconds] [nx|xx]
+– 设置key及值,过期时间可以使用秒或毫秒为单位
+(2)setrange key offset value
+– 从偏移量开始复写key的特定位的值
+(3)append key value
+– 存在则追加,不存在则创建key及value,返回key长度
+(4)setbit key offset value
+– 对key所存储字串,设置或清除特定偏移量上的位(bit)
+– value值可以为1或0,offset为0~2^32之间
+– key不存在,则创建新key
+• bitcount key
+– 统计字串中被设置为1的比特位数量
+(5)• decr key
+– 将key中的值减1,key不存在则先初始化为0,再减1
+• decrby key decrement
+– 将key中的值,减去decrement
+(6)• getrange key start end
+– 返回字串值中的子字串,截取范围为start和end
+– 负数偏移量表示从末尾开始计数,-1表示最后一个字
+符,-2表示倒数第二个字符
+(7)• incr key
+– 将key的值加1,如果key不存在,则初始为0后再加1
+– 主要应用为计数器
+• incrby key increment
+– 将key的值增加increment
+(8)• incrbyfloat key increment
+– 为key中所储存的值加上浮点数增量 increment
+• mget key [key...]
+– 获取一个或多个key的值,空格分隔,具有原子性
+• mset key value [key value ...]
+– 设置多个key及值,空格分隔,具有原子性
+
+
+
+列表 list
+(1)•lpush key value [value...]
+– 将一个或多个值value插入到列表key的表头
+– Key不存在,则创建key
+• lrange key start stop
+– 从开始位置读取key的值到stop结束
+
+hash表 hash
+集合 set 
+有序集合 zset
+
+

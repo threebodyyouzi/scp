@@ -1,0 +1,105 @@
+搭建MongoDB服务器
+装包
+• 免安装,解压后即可使用
+]# mkdir /usr/local/mongodb
+]# tar -zxf mongodb-linux-x86_64-rhel70-3.6.3.tgz
+]# cp -r mongodb-linux-x86_64-rhel70-3.6.3/bin /usr/local/mongodb/
+]# cd /usr/local/mongodb/
+]# mkdir -p etc log data/db
+
+创建配置文件
+• 手动创建服务主配置文件
+etc]# vim mongodb.conf
+logpath=/usr/local/mongodb/log/mongodb.log
+logappend=true       //追加的方式记录日志信息
+dbpath=/usr/local/mongodb/data/db   //数据库目录
+fork=true            //守护进程方式运行
+
+启动服务
+• 启动服务
+# ./bin/mongod -f /usr/local/mongodb/etc/mongodb.conf
+• 查看进程
+# ps -C mongod
+• 查看端口
+# netstat -utnlp | grep :27017
+
+修改服务使用的IP地址和端口号
+]# vim /usr/local/mongodb/etc/mongodb.conf
+bind_ip=192.168.4.50
+port=27050
+连接服务
+]# mongo --host 192.168.4.50 --port 27050
+
+管理mongdb服务的常用命令(严格区分大小写)
+• 查看、创建、切换、 删除库
+– show dbs //查看已有的库
+– db //显示当前所在的库
+– use 库名 //切换库,若库不存在延时创建库
+– show collections 或 show tables //查看库下已有集合
+– db.dropDatabase() //删除当前所在的库
+
+• 查看、创建、删除集合
+– show collections 或 show tables  #查看集合
+– db.集合名.drop() #删除集合
+– db.集合名.save({'',''}) #创建集合,集合不存在时,创建并添加文档 
+
+• 查看 、统计、添加 、删除文档
+– db.集合名.find()
+– db.集合名.count()
+– db.集合名.insert({“name”:”jim”})
+– db.集合名.find({条件})
+– db.集合名.findOne() //返回一条文档
+– db.集合名.remove({}) //删除所有文档
+– db.集合名.remove({条件}) //删除匹配的所有文档
+=========================================================
+基本数据类型
+• 字符串string
+– UTF-8字符串都可以表示为字符串类型的数据
+• 布尔bool
+– 布尔类型有两个值true和false,{x:true}
+• 空null
+– 用于表示空值或者不存在的字段,{x:null}
+• 数值
+– shell默认使用64位浮点型数值。{x:3.14}或{x:3}。
+– NumberInt(4字节整数){x:NumberInt(3)}
+– NumberLong(8字节整数){x:NumberLong(3)}
+• 数组array
+– 数据列表或数据集可以表示为数组
+– {x: ["a","b", "c"]}
+• 代码
+– 查询和文档中可以包括任何JavaScript代码
+– {x: function( ){/* 代码 */}}
+• 日期
+– 日期被存储为自新纪元以来经过的毫秒数,不含时区
+– {x:new Date( )}
+• 对象
+– 对象id是一个12字节的字符串,是文档的唯一标识
+– {x: ObjectId() }
+• 内嵌
+– 文档可以嵌套其他文档,被嵌套的文档作为值来处理
+– {tarena:
+{address:"Beijing",tel:"888888",person:"hansy" }}
+• 正则表达式
+– 查询时,使用正则表达式作为限定条件
+– {x:/正则表达式/}
+======================================================
+•数据导出
+# mongoexport [--host IP地址 --port 端口 ]  -d 库名 -c 集合名 -f 字段名1,字段名2  --type=csv > 目录名/文件名.csv  //csv模式必须指定字段名
+# mongoexport [--host IP地址 --port 端口 ]  -d 库名 -c 集合名  --type=json > 目录名/文件名.json
+•数据导入
+# mongoimport --host IP地址 --port 端口 -d 库名 -c 集合名 --type=json 目录名/文件名.json  //库名和集合名不需要提前创建
+# mongoimport --host IP地址 --port 端口 -d 库名 -c 集合名 -type=csv [--headerline] [--drop] 目录名/文件名.csv
+1. 导入数据时,若库和集合不存在,则先创建库和集合后再导入数据;
+2. 若库和集合已存在,则以追加的方式导入数据到集合里;
+3. 使用--drop选项可以删除原数据后导入新数据,--headerline 忽略标题
+===========================================================
+数据备份
+• 备份数据所有库到当前目录下的dump目录下
+# mongodump [ --host ip地址 --port 端口 ]
+• 备份时指定备份的库和备份目录
+# mongodump [ --host ip地址 --port 端口 ] -d 数据库名 -c 集合名 -o 目录
+• 查看bson文件内容
+# bsondump ./dump/bbs/t1.bson
+===
+数据恢复
+mongorestore --host IP地址 --port 端口 -d 数据库名 [-c 集合名] -o 备份目录名

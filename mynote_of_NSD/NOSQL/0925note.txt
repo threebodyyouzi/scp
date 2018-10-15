@@ -1,0 +1,121 @@
+NOSQL
+not only sql
+--不仅仅是sql
+--泛指非关系型数据库
+--不需要预先定义数据存储结构
+--表的每条记录可以有不同的类型和结构
+主流软件
+--Redis、MongoDB、Memcached (常用)
+--CouchDB、Neo4j、FlockDB   (不常用)
+
+一.部署Redis服务
+1.Redis
+--远程字典服务器
+--是一款高性能(key/value)分布式内存数据库
+--支持数据持久化,可以把内存数据保存到硬盘里
+--支持list、hansh、set、zset数据类型
+--支持master-slave模式数据备份
+用内存存储数据
+2.编译安装
+3.初始化配置
+配置服务运行参数
+– 端口
+– 主配置文件
+– 数据库目录
+– pid文件
+– 启动程序
+#./utils/install_server.sh   //初始化
+Please select the redis port for this instance: [6379]  //默认端口号
+Please select the redis config file name [/etc/redis/6379.conf]   //默认主配置文件
+Please select the redis log file name [/var/log/redis_6379.log]   //默认日志文件
+Please select the data directory for this instance [/var/lib/redis/6379]  //默认数据库目录
+Please select the redis executable path [/usr/local/bin/redis-server] //启动服务时的文件
+4.修改配置文件
+/etc/redis/6379.conf
+5.启动服务
+# /etc/init.d/redis_6379 start|status|stop
+6.链接Rediss数据库服务
+# redis-cli   //连接本机的redis数据库服务
+127.0.0.1:6379> ping
+PONG                    //发送一个ping,若回复PONG,则连接成功
+
+7.
+– set keyname keyvalue //存储
+– get keyname          //获取
+– select 数据库编号0-15  //切换库
+– keys *              //打印所在库的所有变量(可以用通配符)
+– keys a?             //打印指定变量
+– EXISTS keyname      //测试是否存在
+– ttl keyname         //查看生存时间
+– type keyname //查看类型(即使是数字的值,也是string类型)
+– move keyname dbname //移动变量
+– expire keyname 10   //设置有效时间(单位为S)
+– del keyname         //删除变量
+– flushall            //删除所有变量
+– save                //保存所有变量
+– shutdown            //关闭redis服务
+===========================================================
+三.配置文件解析
+vim /etc/redis/6379.conf
+– port 6379 //端口
+– bind 127.0.0.1 //IP地址
+– tcp-backlog 511 //tcp连接总数
+– timeout 0 //连接超时时间
+– tcp-keepalive 300 //长连接时间
+– daemonize yes //守护进程方式运行
+– databases 16 //数据库个数
+– logfile /var/log/redis_6379.log //日志文件
+– maxclients 10000 //并发连接数量
+– dir /var/lib/redis/6379 //数据库目录
+
+]# redis-cli -h 192.168.4.50 -p 6350
+
+内存管理
+内存清除策略
+– volatile-lru   //最近最少使用 (针对设置了TTL的key)
+– allkeys-lru    //删除最少使用的key
+– volatile-random //在设置了TTL的key里随机移除
+– allkeys-random //随机移除key
+– volatile-ttl (minor TTL) //移除最近过期的key
+– noeviction      //不删除,写满时报错
+– maxmemory <bytes> //最大内存
+– maxmemory-policy noeviction //定义使用策略
+– maxmemory-samples 5    //选取模板数据的个数 (针对lru 和 ttl 策略) 
+
+设置连接密码
+]# grep -n requirepass /etc/redis/6379.conf
+501:requirepass 123456
+]# redis-cli
+> auth 123456           //输入密码
+或者
+]# redis-cli -h 192.168.4.50 -p 6350 -a 123456  
+
+
+
+
+二.LNMP+Redis
+三.配置LAMP网站运行平台,把数据存储在本机的Redis服务里,同时可以存储其它网站的数据(192.168.4.50)
+
+]# rpm -q httpd
+]# rpm -q php
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

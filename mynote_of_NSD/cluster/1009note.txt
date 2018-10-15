@@ -1,0 +1,110 @@
+扩展ISCSI
+不可以同时挂载
+所有ISCSI,适合HA集群,不适合LB,
+要想LB集群也可以使用,磁盘需要格式化成gfs(全局文件系统)
+NFS服务
+=======================================
+集群
+一组通过高速网络互联的计算机组,并以单一系统的模式加以管理
+将很多的服务器集中起来一起,提供同一种服务,在客户端看来就像是只有一个服务器
+可以再付出较低成本的情况下获得在性能、可靠性、灵活性方面的相对较高的收益
+任务调度是集群系统中的核心技术
+
+·LB(负载均衡) : LVS软件 Haproxy (nginx)
+客户端负载在计算机集群中尽可能平均分摊
+·HA(高可用) : Keepalived
+避免单点故障,发生故障时,可以快速迁移
+
+(1)LVS集群组成:
+前端:负载均衡层
+由一台或多台负载调度器构成
+中间:服务器群组层
+由一组实际运行应用服务的服务器组成
+底端:数据共享存储层
+提供共享存储空间的存储区域
+
+(2)负载均衡的调度算法
+·轮询
+将客户端请求平均分发到Real Server
+·加权轮询
+根据Real Server权重值进行轮询调度
+·最少连接
+选择连接数最少的服务器
+·加权最少链接
+根据Real Server权重值,选择链接数最少的服务器
+===========================================
+配置LVS/NAT模式集群
+主机角色
+real server : 主机52和53
+分发器  :  主机54
+客户端  :  主机50
+
+1.1 
+(1)分发器  :  主机54
+开启内核路由转发功能,使其能够收发不同网络的ip包
+]#vim /etc/sysctl.conf
+net.ipv4.ip_forward = 1
+(2)设置real server的网关
+]# systemctl stop NetworkManager
+]# route add default gateway 192.168.4.54 
+
+
+1.2
+安装提供lvs服务的软件包
+]# yum -y install ipvsadm.x86_64 
+创建虚拟服务
+-A 添加虚拟服务器
+-t 设置集群地址(VIP)
+-s 指定负载调度算法
+]# ipvsadm -A -t 192.168.2.54:80 -s rr
+
+添加realserver
+]# ipvsadm -a -t 192.168.2.54:80 -r 192.168.4.52:80 -m
+]# ipvsadm -a -t 192.168.2.54:80 -r 192.168.4.53:80 -m
+保存配置abp～758
+查看配置信息
+]# watch -n 1 ipvsadm -Ln --stats
+1.3管理集群
+清空计数器
+]#ipvsadm -Z
+修改调度算法
+]#ipvsadm -E -t 192.168.2.54:80 -s wrr
+删除所有配置
+]#ipvsadm -e -t 192.168.2.54:80 -r 192.168.4.53:80 -w 3 -m
+===============================================
+配置LVS/DR模式集群
+需求: 客户端访问VIP地址 192.168.4.253 访问网站集群
+配置步骤
+1.配置分发器 54
+1.1在本机的eth0接口上绑定vip地址
+]# ifconfig eth0:1 192.168.4.253
+1.2创建集群
+创建虚拟服务
+]# ipvsadm -A -t 192.168.4.253:80 -s rr
+添加realservevr
+]#ipvsadm -a -t 192.168.4.253:80 -r 192.168.4.52:80 -g
+]#ipvsadm -a -t 192.168.4.253:80 -r 192.168.4.53:80 -g
+保存配置+
+查看状态信息
+
+2.配置realserver 52 和 53
+2.1修改网络接口的内核参数
+]# cd /proc/sys/net/ipv4/conf/
+]# echo 1 > lo/arp_ignore
+]# echo 2 > lo/arp_announce
+]# echo 1 > all/arp_ignore
+]# echo 2 > all/arp_announce
+永久修改
+]#vim /etc/rc.d/rc.local
+echo 1 > /proc/sys/net/ipv4/conf/lo/arp_ignore
+echo 2 > /proc/sys/net/ipv4/conf/lo/arp_announce
+echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore
+echo 2 > /proc/sys/net/ipv4/conf/all/arp_announce
+
+2.2在本机的lo接口绑定vip地址 192.168.4.253
+]# ifconfig lo:1 192.168.4.253
+2.3运行网站服务
+
+=================================
+LVS/DR模式的工作原理
+

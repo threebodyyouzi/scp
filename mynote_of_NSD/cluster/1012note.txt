@@ -1,0 +1,72 @@
+块存储应用
+一.管理主机上创建安装虚拟机的镜像文件vm-image1
+]# rbd create vm1-image --image-feature layering --size 10G
+2.2 
+2.3 从管理主机上拷贝配置文件和密码文件到本机的/etc/ceph下
+2.4 在真机上创建一台新的虚拟机 
+]#virsh list --all
+
+2.5 配置 libvirt secret
+(1)
+]# vim secret.xml
+<secret ephemeral='no' private='no'>
+  <usage type='ceph'>
+    <name>client.admin secret</name>
+  </usage>
+</secret>                                  //新建临时文件.编写账户信息文件
+]# virsh secret-define --file secret.xml  //使用XML配置文件创建secret
+生成 secret 4d94484c-4d51-415d-ac3a-22d556a80d56   //随机的UUID,对应账户信息
+                                                     
+]# virsh secret-undefine  4d94484c-4d51-415d-ac3a-22d556a80d56 //删除已有的UUID
+(2)
+]# cat /etc/ceph/ceph.client.admin.keyring //获取client.admin的密钥
+
+(3)
+]# virsh secret-set-value \
+>--secret 5c572d82-dc2f-47ad-a93d-cdf73ed698de \
+>--base64 AQC3679b5D0HExAA6E5EVTsQs3lGYfoSTjGECQ==
+设置secret,添加账户的密钥
+
+2.5 使用图像管理工具创建的虚拟文件 定义一个新的虚拟机
+]# virsh dumpxml avpc > /tmp/avpc1.xml
+
+2.6
+=======================================================
+分布式文件系统存储CephFS存储
+指文件系统管理的物理存储系统不一定直接连接在本地节点上,而是通过计算机网络与节点相连
+MateData 元数据
+--任何文件系统中的数据分为数据和元数据
+--数据是指普通文件中的实际数据
+--而元数据用来描述一个文件的特征的系统数据
+--所以CephFS必须有MDSSs节点
+MDS
+1.部署元数据服务器
+node4 ~]# yum -y install ceph-mds
+node1 ~]# cd /root/ceph-cluster/
+node1 ceph-cluster]# ceph-deploy mds create node4
+node1 ceph-cluster]# ceph-deploy admin node4
+2.创建存储池
+·文件系统需要至少2个池
+--一个池用于存储数据
+--一个池用于存储元数据
+(1)
+]# ceph osd pool create cephfs_data 128
+//创建存储池,对应128个PG
+]# ceph osd pool create cephfs_metadata 128
+
+(2)创建文件系统 myfsl
+]# ceph fs new myfsl  cephfs_metadata cephfs_data
+
+(3)客户端挂载
+]# mkdir /cephfs
+]# cat /etc/ceph/ceph.client.admin.keyring 
+[client.admin]
+	key = AQC3679b5D0HExAA6E5EVTsQs3lGYfoSTjGECQ==
+]# mount -t ceph 192.168.4.51:6789:/ /cephfs -o \
+> name=admin,secret=AQC3679b5D0HExAA6E5EVTsQs3lGYfoSTjGECQ==
+]# mount |grep cephfs
+192.168.4.51:6789:/ on /cephfs type ceph (rw,relatime,name=admin,secret=<hidden>,acl)
+
+
+对象存储
+
