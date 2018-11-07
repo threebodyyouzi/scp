@@ -1,0 +1,10 @@
+<network>
+<name>vbr</name>       //virsh net-list看到的名字
+<bridge name="vbr"/>         //ifconfig看到的名字
+<forward mode="nat"/>
+<ip address="192.168.1.254" netmask="255.255.255.0">   //虚拟网关
+<dhcp>
+<range start="192.168.1.100" end="192.168.1.200"/>   //自动分配的ip
+</dhcp>
+</ip>
+</network>

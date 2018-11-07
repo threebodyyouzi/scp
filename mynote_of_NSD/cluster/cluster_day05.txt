@@ -1,0 +1,388 @@
+day04
+[root@node1 ~]# rbd create image6 --image-feature  layering --size  6G
+[root@node1 ~]# rbd list
+
+
+[root@node1 ~]# rbd list
+demo-image
+image2
+image3
+image4
+image5
+image6
+vpc22-image
+vpc44-image
+[root@node1 ~]# rbd snap ls image5
+SNAPID NAME           SIZE 
+     4 image5-snap 5120 MB 
+[root@node1 ~]# 
+[root@node1 ~]# rbd snap protect image5 --snap image5-snap
+[root@node1 ~]# 
+[root@node1 ~]# rbd clone image5 --snap image5-snap image5-snap-clon --image-feature layering
+
+[root@node1 ~]# rbd info image5-snap-clon
+rbd image 'image5-snap-clon':
+	size 5120 MB in 1280 objects
+	order 22 (4096 kB objects)
+	block_name_prefix: rbd_data.105e238e1f29
+	format: 2
+	features: layering
+	flags: 
+	parent: rbd/image5@image5-snap
+	overlap: 5120 MB
+[root@node1 ~]# 
+[root@node1 ~]# rbd flatten image5-snap-clonImage flatten: 100% complete...done.
+[root@node1 ~]# 
+[root@node1 ~]# rbd info image5-snap-clon
+rbd image 'image5-snap-clon':
+	size 5120 MB in 1280 objects
+	order 22 (4096 kB objects)
+	block_name_prefix: rbd_data.105e238e1f29
+	format: 2
+	features: layering
+	flags: 
+[root@node1 ~]# 
+[root@node1 ~]# rbd snap unprotect image5 --snap image5-snap
+
+
+
++++++++++++++++++++++++++++++++++
+day05
+[root@node1 ~]# rbd create vpc22-image --image-feature  layering --size 10G
+[root@node1 ~]# rbd create vpc44-image --image-feature  layering --size 10G
+
+
+254:
+[root@room9pc17 ~]# cat /etc/yum.repos.d/plj.repo 
+[rhel]
+name=rhel
+baseurl=file:///var/ftp/rhel
+enabled=1
+gpgcheck=0
+[mon]
+name=cephmon
+baseurl=file:///var/ftp/ceph/rhceph-2.0-rhel-7-x86_64/MON
+enabled=1
+gpgcheck=0
+[osd]
+name=cephosd
+baseurl=file:///var/ftp/ceph/rhceph-2.0-rhel-7-x86_64/OSD
+enabled=1
+gpgcheck=0
+[tools]
+name=cephtools
+baseurl=file:///var/ftp/ceph/rhceph-2.0-rhel-7-x86_64/Tools
+enabled=1
+gpgcheck=0
+
+[root@room9pc17 ~]# yum clean all ;  yum  repolist
+
+
+
+yum -y  install ceph-common
+132  scp 192.168.4.51:/etc/ceph/ceph.conf  /etc/ceph/
+133  scp 192.168.4.51:/etc/ceph/ceph.client.admin.keyring /etc/ceph/
+
+创建新虚拟机
+ls /etc/libvirt/qemu/xxx.xml  (39~44)
+
+[root@room9pc17 ~]# vim secret.xml
+<secret ephemeral='no' private='no'>
+        <usage type='ceph'>
+                <name>client.admin secret</name>
+        </usage>
+</secret>
+[root@room9pc17 ~]# 
+
+[root@room9pc17 ~]# virsh secret-define --file secret.xml
+生成 secret ebee4925-94b2-4a66-940a-6eebb96d3a26
+
+[root@room9pc17 ~]# 
+
+
+[root@room9pc17 ~]# cat /etc/ceph/ceph.client.admin.keyring 
+[client.admin]
+	key = AQCL/o1bEC3iHxAAIQLsRGXJdxQKS/0e7Ty0OQ==
+[root@room9pc17 ~]# 
+
+[root@room9pc17 ~]# virsh secret-set-value --secret ebee4925-94b2-4a66-940a-6eebb96d3a26 --base64 AQCL/o1bEC3iHxAAIQLsRGXJdxQKS/0e7Ty0OQ==
+secret 值设定
+
+[root@room9pc17 ~]# 
+
+++++++++++++++++++++++++++++++++++
+]# virsh list --all
+
+[root@room9pc17 ~]# virsh  dumpxml vpc22 > vpc222.xml
+[root@room9pc17 ~]# vim vpc222.xml
+  9   <name>vpc7</name> 要修改
+ 10   <uuid>49ad7eca-85c1-49f4-93d1-15a34563ae57</uuid> 要修改
+ 30   <devices>
+ 31     <emulator>/usr/libexec/qemu-kvm</emulator>
+ 32     <disk type='network' device='disk'>要修改
+ 33       <driver name='qemu' type='raw'/>
+ 34       <auth username='admin'> 手动添加
+ 35         <secret type='ceph' uuid='ebee4925-94b2-4a66-940a-6eebb96d3a26'/> 手动添加
+ 36       </auth> 手动添加
+ 37       <source protocol='rbd' name='rbd/vpc22-image'> 手动添加
+ 38            <host name='192.168.4.51' port='6789'/>   手动添加
+ 39       </source>手动添加
+ 40       <target dev='hda' bus='ide'/>
+ 41       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
+ 42     </disk>
+ 43     <disk type='block' device='cdrom'>
+:wq
+[root@room9pc17 ~]# cp  vpc222.xml  /tmp/
+[root@room9pc17 ~]# virsh define /tmp/vpc222.xml
+
+[root@room9pc17 ~]# virsh list --all
+
+root@room9pc17 ~]# virsh undefine vpc22  (取消定义)
+
+[root@room9pc17 ~]# virsh define /tmp/vpc222.xml 
+定义域 vpc222（从 /tmp/vpc222.xml）
+
+[root@room9pc17 ~]# 
+[root@room9pc17 ~]# virsh  list --all
+
++++++++++++++++++++++++++++++++++++++
+查看虚拟机serect值
+[root@room9pc17 ~]# virsh --help  | grep  secret
+ Secret (help keyword 'secret')
+    secret-define                  定义或者修改 XML 中的 secret
+    secret-dumpxml                 XML 中的 secret 属性
+    secret-get-value               secret 值输出
+    secret-list                    列出 secret
+    secret-set-value               设定 secret 值
+    secret-undefine                取消定义 secret
+[root@room9pc17 ~]# virsh secret-list
+ UUID                                  用量
+--------------------------------------------------------------------------------
+ ebee4925-94b2-4a66-940a-6eebb96d3a26  ceph client.admin secret
+
+删除虚拟机serect值
+[root@room9pc17 ~]#virsh secret-undefine ebee4925-94b2-4a66-940a-6eebb96d3a26
+
+
+CephFS+++++++++++++++++++++++++++++++++++++
+
+1、配置元数据服务器 192.168.4.54
+
+node4:
+]# yum  -y  install ceph-mds
+]# ls /etc/ceph
+
+node1:
+]# cd  /root/ceph_cluster
+]# ceph-deploy mds create node4
+]# ceph-deploy admin node4
+
+node4:
+]# ls /etc/ceph
+]# systemctl  status ceph\*
+
+2、配置存储设备
+node4:
+[root@node4 ~]# which  rbd
+/usr/bin/rbd
+[root@node4 ~]# ceph osd pool create cephfs_data  128
+pool 'cephfs_data' created
+[root@node4 ~]# 
+[root@node4 ~]# ceph osd pool create cephfs_metadata  128
+pool 'cephfs_metadata' created
+[root@node4 ~]# 
+
+[root@node4 ~]# ceph mds stat 
+e2:, 1 up:standby
+[root@node4 ~]# 
+[root@node4 ~]# ceph fs new myfs1 cephfs_metadata cephfs_data
+new fs with metadata pool 2 and data pool 1
+[root@node4 ~]# 
+[root@node4 ~]# ceph mds stat 
+e5: 1/1/1 up {0=node4=up:active}
+[root@node4 ~]#
+
+[root@node4 ~]# ceph fs ls
+name: myfs1, metadata pool: cephfs_metadata, data pools: [cephfs_data ]
+[root@node4 ~]#
+
+cephfs_client+++++++++++++++++++++++++++++++++++++++++
+[root@client ceph]# cat ceph.client.admin.keyring 
+[client.admin]
+	key = AQCL/o1bEC3iHxAAIQLsRGXJdxQKS/0e7Ty0OQ==
+[root@client ceph]# 
+
+[root@client ceph]# mkdir  /cephfs
+
+]# mount -t ceph 192.168.4.51:6789:/  /cephfs  -o name=admin,secret='AQCL/o1bEC3iHxAAIQLsRGXJdxQKS/0e7Ty0OQ=='
+
+
+对象存储++++++++++++++++++++++++++++++++++++++
+
+node1 ：
+]# yum  -y  install   ceph-radosgw
+]# cd /root/ceph-cluster/
+]# ceph-deploy admin node5
+]# ceph-deploy rgw create node5
+
+node5 ~]# rpm  -q  ceph-radosgw
+ceph-radosgw-10.2.2-38.el7cp.x86_64
+
+
+]# ls /etc/ceph/
+ceph.client.admin.keyring  ceph.conf  rbdmap  tmpWafoxI
+[root@node5 ~]# 
+
+]# systemctl  status  ceph\*
+
+
+
+ot@node5 ceph]# vim /etc/ceph/ceph.conf 
+[global]
+fsid = 2d5fcc5b-0696-41c4-9e83-828aba162572
+mon_initial_members = node1, node2, node3
+mon_host = 192.168.4.51,192.168.4.52,192.168.4.53
+auth_cluster_required = cephx
+auth_service_required = cephx
+auth_client_required = cephx
+[client.rgw.node5]
+host = node5
+rgw_frontends = "civetweb port=80"
+:wq
+
+[root@node5 ceph]#  ]# systemctl  restart ceph\*
+
+client]# curl  http://192.168.4.55:7480
+curl: (7) Failed connect to 192.168.4.55:7480; 拒绝连接
+[root@node1 ceph-cluster]# 
+[root@node1 ceph-cluster]# 
+
+client]# curl  http://192.168.4.55
+<?xml version="1.0" encoding="UTF-8"?><ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>anonymous</ID><DisplayName></DisplayName></Owner><Buckets></Buckets></ListAllMyBucketsResult>[root@node1 ceph-cluster]# 
+
+
+
+[root@node5 ~]# radosgw-admin  user create --uid="yaya" --display-name="First User3"
+{
+    "user_id": "yaya",
+    "display_name": "First User3",
+    "email": "",
+    "suspended": 0,
+    "max_buckets": 1000,
+    "auid": 0,
+    "subusers": [],
+    "keys": [
+        {
+            "user": "yaya",
+            "access_key": "2AHD0BTC7R774F3EU3CW",
+            "secret_key": "DMfBnBx7c0wJ7OCKdS0DFcBtN7jKVpku7XXaZtKq"
+        }
+    ],
+
+client++++++++++++++++++++++++
+]# yum -y  install s3cmd-2.0.1-1.el7.noarch.rpm
+[root@client ~]# which s3cmd
+/usr/bin/s3cmd
+[root@client ~]# 
+[root@client ~]# s3cmd --help
+
+[root@client ~]# s3cmd --configure
+
+[root@client ~]# s3cmd ls
+[root@client ~]# s3cmd mb s3://my_bucket
+Bucket 's3://my_bucket/' created
+[root@client ~]# 
+[root@client ~]# s3cmd ls
+2018-09-05 08:36  s3://my_bucket
+[root@client ~]# 
+[root@client ~]# s3cmd put /var/log/messages s3://my_bucket/log/
+upload: '/var/log/messages' -> 's3://my_bucket/log/messages'  [1 of 1]
+ 592146 of 592146   100% in    3s   144.67 kB/s  done
+[root@client ~]# 
+[root@client ~]# 
+[root@client ~]# s3cmd ls
+2018-09-05 08:36  s3://my_bucket
+[root@client ~]# 
+[root@client ~]# s3cmd ls  s3://my_bucket
+                       DIR   s3://my_bucket/log/
+[root@client ~]# 
+[root@client ~]# s3cmd ls  s3://my_bucket/log
+                       DIR   s3://my_bucket/log/
+[root@client ~]# s3cmd ls  s3://my_bucket/log/
+2018-09-05 08:37    592146   s3://my_bucket/log/messages
+[root@client ~]# 
+
+[root@client ~]# s3cmd ls  s3://my_bucket/log/
+2018-09-05 08:37    592146   s3://my_bucket/log/messages
+[root@client ~]# 
+[root@client ~]# 
+[root@client ~]# 
+[root@client ~]# 
+[root@client ~]# mkdir /download
+[root@client ~]# s3cmd get s3://my_bucket/log/messages /download/
+download: 's3://my_bucket/log/messages' -> '/download/messages'  [1 of 1]
+ 592146 of 592146   100% in    0s    45.00 MB/s  done
+[root@client ~]# 
+[root@client ~]# ls /download/
+messages
+[root@client ~]# s3cmd ls  s3://my_bucket/log/
+2018-09-05 08:37    592146   s3://my_bucket/log/messages
+[root@client ~]# 
+[root@client ~]# s3cmd del  s3://my_bucket/log/messages
+delete: 's3://my_bucket/log/messages'
+[root@client ~]# 
+[root@client ~]# s3cmd ls  s3://my_bucket/log/
+[root@client ~]# 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
